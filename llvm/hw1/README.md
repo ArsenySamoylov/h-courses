@@ -5,7 +5,7 @@ This is example of graphical application with simple interface based on the SDL 
 Simple run:
 ```
 sudo apt install libsdl2-dev
-clang start.c sim.c app.c -lSDL2
+make all
 ./a.out
 ```
 Run interpreter:
