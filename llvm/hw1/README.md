@@ -8,50 +8,9 @@ sudo apt install libsdl2-dev
 make all
 ./a.out
 ```
-Run interpreter:
-```
-clang start.c sim.c app.c -emit-llvm -S
-llvm-link start.ll sim.ll app.ll -o full.bc
-lli --load=/usr/lib/x86_64-linux-gnu/libSDL2.so full.bc
-```
-Run with your LLVM Pass:
-```
-# Old Pass Manager
-clang start.c sim.c app.c -lSDL2 -Xclang -load -Xclang ../LLVM_PASS/libPass.so -flegacy-pass-manager
-# New Pass Manager
-clang start.c sim.c app.c -lSDL2 -fpass-plugin=../LLVM_PASS/libPass.so
-```
-
-## Graphical Interface:
-```
-#define SIM_X_SIZE 512
-#define SIM_Y_SIZE 256
-
-void simFlush();
-void simPutPixel(int x, int y, int argb);
-int simRand();
-```
-
-## Graphical app instrumentation:
-```
-clang++ ../LLVM_Pass/Pass_cfg.cpp -c -fPIC -I$(llvm-config --includedir) -o Pass.o
-clang++ Pass.o -fPIC -shared -o libPass.so
-clang app.c -c -fpass-plugin=../LLVM_PASS/libPass.so
-clang start.c sim.c app.o ../LLVM_Pass/log.c -lSDL2
-./a.out
 
 ```
-## Graphical app IR generations:
+## Graphical app IR generation:
 ```
-clang++ $(llvm-config --cppflags --ldflags --libs) sim.c IRGen/app_ir_gen.cpp -lSDL2
-./a.out
-
-clang++ $(llvm-config --cppflags --ldflags --libs) sim.c IRGen/app_asm_IRgen_1.cpp -lSDL2
-./a.out IRGen/app.s
-
-clang++ $(llvm-config --cppflags --ldflags --libs) sim.c IRGen/app_asm_IRgen_2.cpp -lSDL2
-./a.out IRGen/app.s
+make get_ir
 ```
-
-## SDL 2.0 documentation:
-https://wiki.libsdl.org
