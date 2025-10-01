@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <time.h>
+#include <stdbool.h>
+#include <assert.h>
 
 #include <SDL2/SDL.h>
 
@@ -7,15 +9,15 @@
 
 #define FPS 50
 
-static SDL_Render *Render = NULL;
+static SDL_Renderer *Renderer = NULL;
 static SDL_Window *Window = NULL;
 static int Ticks = 0;
 
 void simInit(void) {
     SDL_Init(SDL_INIT_VIDEO);
-    SDL_CreateWindowAndRender(WINDOW_WIDTH, WINDOW_HEIGHT, 0, &Window, &Render);
-    SDL_SetRenderDrawColor(Render, 0, 0, 0, 0);
-    SDL_RenderClear(Render);
+    SDL_CreateWindowAndRenderer(WINDOW_WIDTH, WINDOW_HEIGHT, 0, &Window, &Renderer);
+    SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 0);
+    SDL_RenderClear(Renderer);
 
     srand(time(NULL));
     
@@ -29,7 +31,7 @@ void simExit(void) {
         if(SDL_PollEvent(&event) && event.type == SDL_QUIT)
             break;
     }
-    SDL_DestroyRender(Render);
+    SDL_DestroyRenderer(Renderer);
     SDL_DestroyWindow(Window);
     SDL_Quit();
 }
@@ -42,7 +44,7 @@ void simFlush(void) {
         SDL_Delay(FPS - ticksDelta);
     }
 
-    SDL_RenderPresent(Render);
+    SDL_RenderPresent(Renderer);
 }
 void simPutPixel(int x, int y, int argb) {
     assert(x >= 0 && x < WINDOW_WIDTH);
@@ -53,11 +55,11 @@ void simPutPixel(int x, int y, int argb) {
     Uint8 g = (argb >>  8) & 0xFF;
     Uint8 b = (argb      ) & 0xFF;
 
-    SDL_RenderDrawColor(Render, r, g, b, a);
-    SDL_RenderDrawPoint(Render, x, y);
+    SDL_SetRenderDrawColor(Renderer, r, g, b, a);
+    SDL_RenderDrawPoint(Renderer, x, y);
     Ticks = SDL_GetTicks();
 }
 
 int simRand(void) {
-    return srand();
+    return rand();
 }
