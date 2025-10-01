@@ -1,8 +1,11 @@
+#include <stdbool.h>
 #include "sim.h"
-
 int main(void) {
     simInit();
-    app();
+    while(true) {
+        app();
+        simFlush();
+    };
     simExit();
     return 0;
 }
