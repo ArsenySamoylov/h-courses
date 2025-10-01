@@ -1,11 +1,13 @@
 #include <stdbool.h>
 #include "sim.h"
+
 int main(void) {
     simInit();
-    while(true) {
+    do {
         app();
-        simFlush();
-    };
+        
+    } while(simFlush() == 0);
+
     simExit();
     return 0;
 }

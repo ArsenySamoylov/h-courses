@@ -6,6 +6,6 @@
 void simInit(void);
 void app(void);
 void simExit(void);
-void simFlush(void);
+int simFlush(void);
 void simPutPixel(int x, int y, int argb);
 int simRand(void);

@@ -36,15 +36,18 @@ void simExit(void) {
     SDL_Quit();
 }
 
-void simFlush(void) {
+int simFlush(void) {
     SDL_PumpEvents();
-    assert(SDL_TRUE != SDL_HasEvent(SDL_QUIT));
+    if(SDL_TRUE == SDL_HasEvent(SDL_QUIT))
+        return -1;
+
     Uint32 ticksDelta = SDL_GetTicks() - Ticks;
     if(ticksDelta < FPS) {
         SDL_Delay(FPS - ticksDelta);
     }
 
     SDL_RenderPresent(Renderer);
+    return 0;
 }
 void simPutPixel(int x, int y, int argb) {
     assert(x >= 0 && x < WINDOW_WIDTH);
