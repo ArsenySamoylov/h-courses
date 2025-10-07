@@ -3,11 +3,7 @@
 
 int main(void) {
     simInit();
-    do {
-        app();
-        
-    } while(simFlush() == 0);
-
+    app();
     simExit();
     return 0;
 }

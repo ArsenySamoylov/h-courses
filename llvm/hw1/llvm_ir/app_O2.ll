@@ -3,47 +3,44 @@ source_filename = "src/app.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux-gnu"
 
-@current = internal unnamed_addr global ptr @buff1, align 8
-@next = internal unnamed_addr global ptr @buff2, align 8
-@app.isInitted = internal unnamed_addr global i1 false, align 1
-@buff1 = internal global [51 x [102 x i32]] zeroinitializer, align 16
-@buff2 = internal global [51 x [102 x i32]] zeroinitializer, align 16
+@app.buff1 = internal global [51 x [102 x i32]] zeroinitializer, align 16
+@app.buff2 = internal global [51 x [102 x i32]] zeroinitializer, align 16
+@app.current = internal unnamed_addr global ptr @app.buff1, align 8
+@app.next = internal unnamed_addr global ptr @app.buff2, align 8
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @init() local_unnamed_addr #0 {
-  br label %1
+define dso_local void @init(ptr nocapture noundef writeonly %0) local_unnamed_addr #0 {
+  br label %2
 
-1:                                                ; preds = %0, %4
-  %2 = phi i64 [ 0, %0 ], [ %5, %4 ]
-  br label %7
+2:                                                ; preds = %1, %5
+  %3 = phi i64 [ 0, %1 ], [ %6, %5 ]
+  br label %8
 
-3:                                                ; preds = %4
+4:                                                ; preds = %5
   ret void
 
-4:                                                ; preds = %7
-  %5 = add nuw nsw i64 %2, 1
-  %6 = icmp eq i64 %5, 51
-  br i1 %6, label %3, label %1, !llvm.loop !5
+5:                                                ; preds = %8
+  %6 = add nuw nsw i64 %3, 1
+  %7 = icmp eq i64 %6, 51
+  br i1 %7, label %4, label %2, !llvm.loop !5
 
-7:                                                ; preds = %1, %7
-  %8 = phi i64 [ 0, %1 ], [ %15, %7 ]
-  %9 = tail call i32 @simRand() #4
-  %10 = srem i32 %9, 100
-  %11 = icmp slt i32 %10, 15
-  %12 = zext i1 %11 to i32
-  %13 = load ptr, ptr @current, align 8, !tbaa !7
-  %14 = getelementptr inbounds [51 x [102 x i32]], ptr %13, i64 0, i64 %2, i64 %8
-  store i32 %12, ptr %14, align 4, !tbaa !11
-  %15 = add nuw nsw i64 %8, 1
+8:                                                ; preds = %2, %8
+  %9 = phi i64 [ 0, %2 ], [ %15, %8 ]
+  %10 = tail call i32 @simRand() #4
+  %11 = srem i32 %10, 100
+  %12 = icmp slt i32 %11, 15
+  %13 = zext i1 %12 to i32
+  %14 = getelementptr inbounds [102 x i32], ptr %0, i64 %3, i64 %9
+  store i32 %13, ptr %14, align 4, !tbaa !7
+  %15 = add nuw nsw i64 %9, 1
   %16 = icmp eq i64 %15, 102
-  br i1 %16, label %4, label %7, !llvm.loop !13
+  br i1 %16, label %5, label %8, !llvm.loop !11
 }
 
 declare i32 @simRand() local_unnamed_addr #1
 
-; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(read, inaccessiblemem: none) uwtable
-define dso_local i32 @countNeighbors(i32 noundef %0, i32 noundef %1) local_unnamed_addr #2 {
-  %3 = load ptr, ptr @current, align 8
+; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: read) uwtable
+define dso_local i32 @countNeighbors(i32 noundef %0, i32 noundef %1, ptr nocapture noundef readonly %2) local_unnamed_addr #2 {
   %4 = add nsw i32 %1, -1
   %5 = zext nneg i32 %4 to i64
   %6 = add nsw i32 %0, -1
@@ -53,16 +50,16 @@ define dso_local i32 @countNeighbors(i32 noundef %0, i32 noundef %1) local_unnam
   %10 = and i1 %7, %9
   br i1 %10, label %11, label %17
 
-11:                                               ; preds = %2
+11:                                               ; preds = %3
   %12 = zext nneg i32 %6 to i64
-  %13 = getelementptr inbounds [51 x [102 x i32]], ptr %3, i64 0, i64 %5, i64 %12
-  %14 = load i32, ptr %13, align 4, !tbaa !11
+  %13 = getelementptr inbounds [102 x i32], ptr %2, i64 %5, i64 %12
+  %14 = load i32, ptr %13, align 4, !tbaa !7
   %15 = icmp ne i32 %14, 0
   %16 = zext i1 %15 to i32
   br label %17
 
-17:                                               ; preds = %2, %11
-  %18 = phi i32 [ 0, %2 ], [ %16, %11 ]
+17:                                               ; preds = %3, %11
+  %18 = phi i32 [ 0, %3 ], [ %16, %11 ]
   %19 = icmp ult i32 %0, 102
   %20 = add i32 %1, -1
   %21 = icmp ult i32 %20, 51
@@ -71,8 +68,8 @@ define dso_local i32 @countNeighbors(i32 noundef %0, i32 noundef %1) local_unnam
 
 23:                                               ; preds = %17
   %24 = zext nneg i32 %0 to i64
-  %25 = getelementptr inbounds [51 x [102 x i32]], ptr %3, i64 0, i64 %5, i64 %24
-  %26 = load i32, ptr %25, align 4, !tbaa !11
+  %25 = getelementptr inbounds [102 x i32], ptr %2, i64 %5, i64 %24
+  %26 = load i32, ptr %25, align 4, !tbaa !7
   %27 = icmp ne i32 %26, 0
   %28 = zext i1 %27 to i32
   %29 = add nuw nsw i32 %18, %28
@@ -89,8 +86,8 @@ define dso_local i32 @countNeighbors(i32 noundef %0, i32 noundef %1) local_unnam
 
 37:                                               ; preds = %30
   %38 = zext nneg i32 %32 to i64
-  %39 = getelementptr inbounds [51 x [102 x i32]], ptr %3, i64 0, i64 %5, i64 %38
-  %40 = load i32, ptr %39, align 4, !tbaa !11
+  %39 = getelementptr inbounds [102 x i32], ptr %2, i64 %5, i64 %38
+  %40 = load i32, ptr %39, align 4, !tbaa !7
   %41 = icmp ne i32 %40, 0
   %42 = zext i1 %41 to i32
   %43 = add nuw nsw i32 %31, %42
@@ -107,8 +104,8 @@ define dso_local i32 @countNeighbors(i32 noundef %0, i32 noundef %1) local_unnam
 
 51:                                               ; preds = %44
   %52 = zext nneg i32 %47 to i64
-  %53 = getelementptr inbounds [51 x [102 x i32]], ptr %3, i64 0, i64 %46, i64 %52
-  %54 = load i32, ptr %53, align 4, !tbaa !11
+  %53 = getelementptr inbounds [102 x i32], ptr %2, i64 %46, i64 %52
+  %54 = load i32, ptr %53, align 4, !tbaa !7
   %55 = icmp ne i32 %54, 0
   %56 = zext i1 %55 to i32
   %57 = add nuw nsw i32 %45, %56
@@ -124,8 +121,8 @@ define dso_local i32 @countNeighbors(i32 noundef %0, i32 noundef %1) local_unnam
 
 64:                                               ; preds = %58
   %65 = zext nneg i32 %60 to i64
-  %66 = getelementptr inbounds [51 x [102 x i32]], ptr %3, i64 0, i64 %46, i64 %65
-  %67 = load i32, ptr %66, align 4, !tbaa !11
+  %66 = getelementptr inbounds [102 x i32], ptr %2, i64 %46, i64 %65
+  %67 = load i32, ptr %66, align 4, !tbaa !7
   %68 = icmp ne i32 %67, 0
   %69 = zext i1 %68 to i32
   %70 = add nuw nsw i32 %59, %69
@@ -144,8 +141,8 @@ define dso_local i32 @countNeighbors(i32 noundef %0, i32 noundef %1) local_unnam
 
 80:                                               ; preds = %71
   %81 = zext nneg i32 %75 to i64
-  %82 = getelementptr inbounds [51 x [102 x i32]], ptr %3, i64 0, i64 %74, i64 %81
-  %83 = load i32, ptr %82, align 4, !tbaa !11
+  %82 = getelementptr inbounds [102 x i32], ptr %2, i64 %74, i64 %81
+  %83 = load i32, ptr %82, align 4, !tbaa !7
   %84 = icmp ne i32 %83, 0
   %85 = zext i1 %84 to i32
   %86 = add nuw nsw i32 %72, %85
@@ -161,8 +158,8 @@ define dso_local i32 @countNeighbors(i32 noundef %0, i32 noundef %1) local_unnam
 
 93:                                               ; preds = %87
   %94 = zext nneg i32 %0 to i64
-  %95 = getelementptr inbounds [51 x [102 x i32]], ptr %3, i64 0, i64 %74, i64 %94
-  %96 = load i32, ptr %95, align 4, !tbaa !11
+  %95 = getelementptr inbounds [102 x i32], ptr %2, i64 %74, i64 %94
+  %96 = load i32, ptr %95, align 4, !tbaa !7
   %97 = icmp ne i32 %96, 0
   %98 = zext i1 %97 to i32
   %99 = add nuw nsw i32 %88, %98
@@ -179,8 +176,8 @@ define dso_local i32 @countNeighbors(i32 noundef %0, i32 noundef %1) local_unnam
 
 107:                                              ; preds = %100
   %108 = zext nneg i32 %102 to i64
-  %109 = getelementptr inbounds [51 x [102 x i32]], ptr %3, i64 0, i64 %74, i64 %108
-  %110 = load i32, ptr %109, align 4, !tbaa !11
+  %109 = getelementptr inbounds [102 x i32], ptr %2, i64 %74, i64 %108
+  %110 = load i32, ptr %109, align 4, !tbaa !7
   %111 = icmp ne i32 %110, 0
   %112 = zext i1 %111 to i32
   %113 = add nuw nsw i32 %101, %112
@@ -234,63 +231,58 @@ define dso_local void @drawCell(i32 noundef %0, i32 noundef %1, i32 noundef %2) 
 declare void @simPutPixel(i32 noundef, i32 noundef, i32 noundef) local_unnamed_addr #1
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @render() local_unnamed_addr #0 {
-  br label %1
+define dso_local void @render(ptr nocapture noundef readonly %0) local_unnamed_addr #0 {
+  br label %2
 
-1:                                                ; preds = %0, %5
-  %2 = phi i64 [ 0, %0 ], [ %6, %5 ]
-  %3 = trunc i64 %2 to i32
-  br label %8
+2:                                                ; preds = %1, %6
+  %3 = phi i64 [ 0, %1 ], [ %7, %6 ]
+  %4 = trunc i64 %3 to i32
+  br label %9
 
-4:                                                ; preds = %5
+5:                                                ; preds = %6
   ret void
 
-5:                                                ; preds = %8
-  %6 = add nuw nsw i64 %2, 1
-  %7 = icmp eq i64 %6, 51
-  br i1 %7, label %4, label %1, !llvm.loop !14
+6:                                                ; preds = %9
+  %7 = add nuw nsw i64 %3, 1
+  %8 = icmp eq i64 %7, 51
+  br i1 %8, label %5, label %2, !llvm.loop !12
 
-8:                                                ; preds = %1, %8
-  %9 = phi i64 [ 0, %1 ], [ %16, %8 ]
-  %10 = load ptr, ptr @current, align 8, !tbaa !7
-  %11 = getelementptr inbounds [51 x [102 x i32]], ptr %10, i64 0, i64 %2, i64 %9
-  %12 = load i32, ptr %11, align 4, !tbaa !11
+9:                                                ; preds = %2, %9
+  %10 = phi i64 [ 0, %2 ], [ %16, %9 ]
+  %11 = getelementptr inbounds [102 x i32], ptr %0, i64 %3, i64 %10
+  %12 = load i32, ptr %11, align 4, !tbaa !7
   %13 = icmp eq i32 %12, 0
   %14 = select i1 %13, i32 -1, i32 -16776961
-  %15 = trunc i64 %9 to i32
-  tail call void @drawCell(i32 noundef %15, i32 noundef %3, i32 noundef %14)
-  %16 = add nuw nsw i64 %9, 1
+  %15 = trunc i64 %10 to i32
+  tail call void @drawCell(i32 noundef %15, i32 noundef %4, i32 noundef %14)
+  %16 = add nuw nsw i64 %10, 1
   %17 = icmp eq i64 %16, 102
-  br i1 %17, label %5, label %8, !llvm.loop !15
+  br i1 %17, label %6, label %9, !llvm.loop !13
 }
 
-; Function Attrs: nofree norecurse nosync nounwind memory(readwrite, inaccessiblemem: none) uwtable
-define dso_local void @update() local_unnamed_addr #3 {
-  %1 = load ptr, ptr @current, align 8, !tbaa !7
-  %2 = load ptr, ptr @next, align 8
+; Function Attrs: nofree norecurse nosync nounwind memory(argmem: readwrite) uwtable
+define dso_local void @update(ptr nocapture noundef readonly %0, ptr nocapture noundef writeonly %1) local_unnamed_addr #3 {
   br label %3
 
-3:                                                ; preds = %0, %7
-  %4 = phi i64 [ 0, %0 ], [ %8, %7 ]
+3:                                                ; preds = %2, %7
+  %4 = phi i64 [ 0, %2 ], [ %8, %7 ]
   %5 = trunc i64 %4 to i32
   br label %10
 
 6:                                                ; preds = %7
-  store ptr %2, ptr @current, align 8, !tbaa !7
-  store ptr %1, ptr @next, align 8, !tbaa !7
   ret void
 
 7:                                                ; preds = %24
   %8 = add nuw nsw i64 %4, 1
   %9 = icmp eq i64 %8, 51
-  br i1 %9, label %6, label %3, !llvm.loop !16
+  br i1 %9, label %6, label %3, !llvm.loop !14
 
 10:                                               ; preds = %3, %24
   %11 = phi i64 [ 0, %3 ], [ %27, %24 ]
   %12 = trunc i64 %11 to i32
-  %13 = tail call i32 @countNeighbors(i32 noundef %12, i32 noundef %5)
-  %14 = getelementptr inbounds [51 x [102 x i32]], ptr %1, i64 0, i64 %4, i64 %11
-  %15 = load i32, ptr %14, align 4, !tbaa !11
+  %13 = tail call i32 @countNeighbors(i32 noundef %12, i32 noundef %5, ptr noundef %0)
+  %14 = getelementptr inbounds [102 x i32], ptr %0, i64 %4, i64 %11
+  %15 = load i32, ptr %14, align 4, !tbaa !7
   %16 = icmp eq i32 %15, 0
   br i1 %16, label %17, label %20
 
@@ -307,127 +299,123 @@ define dso_local void @update() local_unnamed_addr #3 {
 
 24:                                               ; preds = %20, %17
   %25 = phi i32 [ %19, %17 ], [ %23, %20 ]
-  %26 = getelementptr inbounds [51 x [102 x i32]], ptr %2, i64 0, i64 %4, i64 %11
+  %26 = getelementptr inbounds [102 x i32], ptr %1, i64 %4, i64 %11
   store i32 %25, ptr %26, align 4
   %27 = add nuw nsw i64 %11, 1
   %28 = icmp eq i64 %27, 102
-  br i1 %28, label %7, label %10, !llvm.loop !17
+  br i1 %28, label %7, label %10, !llvm.loop !15
 }
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @app() local_unnamed_addr #0 {
-  %1 = load i1, ptr @app.isInitted, align 1
-  br i1 %1, label %2, label %4
+  %1 = load ptr, ptr @app.current, align 8, !tbaa !16
+  br label %2
 
-2:                                                ; preds = %0
-  %3 = load ptr, ptr @current, align 8, !tbaa !7
-  br label %20
+2:                                                ; preds = %4, %0
+  %3 = phi i64 [ 0, %0 ], [ %5, %4 ]
+  br label %7
 
-4:                                                ; preds = %0, %6
-  %5 = phi i64 [ %7, %6 ], [ 0, %0 ]
-  br label %9
+4:                                                ; preds = %7
+  %5 = add nuw nsw i64 %3, 1
+  %6 = icmp eq i64 %5, 51
+  br i1 %6, label %16, label %2, !llvm.loop !5
 
-6:                                                ; preds = %9
-  %7 = add nuw nsw i64 %5, 1
-  %8 = icmp eq i64 %7, 51
-  br i1 %8, label %19, label %4, !llvm.loop !5
+7:                                                ; preds = %7, %2
+  %8 = phi i64 [ 0, %2 ], [ %14, %7 ]
+  %9 = tail call i32 @simRand() #4
+  %10 = srem i32 %9, 100
+  %11 = icmp slt i32 %10, 15
+  %12 = zext i1 %11 to i32
+  %13 = getelementptr inbounds [102 x i32], ptr %1, i64 %3, i64 %8
+  store i32 %12, ptr %13, align 4, !tbaa !7
+  %14 = add nuw nsw i64 %8, 1
+  %15 = icmp eq i64 %14, 102
+  br i1 %15, label %4, label %7, !llvm.loop !11
 
-9:                                                ; preds = %9, %4
-  %10 = phi i64 [ 0, %4 ], [ %17, %9 ]
-  %11 = tail call i32 @simRand() #4
-  %12 = srem i32 %11, 100
-  %13 = icmp slt i32 %12, 15
-  %14 = zext i1 %13 to i32
-  %15 = load ptr, ptr @current, align 8, !tbaa !7
-  %16 = getelementptr inbounds [51 x [102 x i32]], ptr %15, i64 0, i64 %5, i64 %10
-  store i32 %14, ptr %16, align 4, !tbaa !11
-  %17 = add nuw nsw i64 %10, 1
-  %18 = icmp eq i64 %17, 102
-  br i1 %18, label %6, label %9, !llvm.loop !13
+16:                                               ; preds = %4, %59
+  %17 = load ptr, ptr @app.current, align 8, !tbaa !16
+  %18 = load ptr, ptr @app.next, align 8, !tbaa !16
+  br label %19
 
-19:                                               ; preds = %6
-  store i1 true, ptr @app.isInitted, align 1
-  br label %20
+19:                                               ; preds = %22, %16
+  %20 = phi i64 [ 0, %16 ], [ %23, %22 ]
+  %21 = trunc i64 %20 to i32
+  br label %25
 
-20:                                               ; preds = %2, %19
-  %21 = phi ptr [ %3, %2 ], [ %15, %19 ]
-  %22 = load ptr, ptr @next, align 8
-  br label %23
+22:                                               ; preds = %39
+  %23 = add nuw nsw i64 %20, 1
+  %24 = icmp eq i64 %23, 51
+  br i1 %24, label %44, label %19, !llvm.loop !14
 
-23:                                               ; preds = %26, %20
-  %24 = phi i64 [ 0, %20 ], [ %27, %26 ]
-  %25 = trunc i64 %24 to i32
-  br label %29
+25:                                               ; preds = %39, %19
+  %26 = phi i64 [ 0, %19 ], [ %42, %39 ]
+  %27 = trunc i64 %26 to i32
+  %28 = tail call i32 @countNeighbors(i32 noundef %27, i32 noundef %21, ptr noundef %17)
+  %29 = getelementptr inbounds [102 x i32], ptr %17, i64 %20, i64 %26
+  %30 = load i32, ptr %29, align 4, !tbaa !7
+  %31 = icmp eq i32 %30, 0
+  br i1 %31, label %32, label %35
 
-26:                                               ; preds = %43
-  %27 = add nuw nsw i64 %24, 1
-  %28 = icmp eq i64 %27, 51
-  br i1 %28, label %48, label %23, !llvm.loop !16
+32:                                               ; preds = %25
+  %33 = icmp eq i32 %28, 3
+  %34 = zext i1 %33 to i32
+  br label %39
 
-29:                                               ; preds = %43, %23
-  %30 = phi i64 [ 0, %23 ], [ %46, %43 ]
-  %31 = trunc i64 %30 to i32
-  %32 = tail call i32 @countNeighbors(i32 noundef %31, i32 noundef %25)
-  %33 = getelementptr inbounds [51 x [102 x i32]], ptr %21, i64 0, i64 %24, i64 %30
-  %34 = load i32, ptr %33, align 4, !tbaa !11
-  %35 = icmp eq i32 %34, 0
-  br i1 %35, label %36, label %39
+35:                                               ; preds = %25
+  %36 = add i32 %28, -4
+  %37 = icmp ult i32 %36, -2
+  %38 = select i1 %37, i32 0, i32 %30
+  br label %39
 
-36:                                               ; preds = %29
-  %37 = icmp eq i32 %32, 3
-  %38 = zext i1 %37 to i32
-  br label %43
+39:                                               ; preds = %35, %32
+  %40 = phi i32 [ %34, %32 ], [ %38, %35 ]
+  %41 = getelementptr inbounds [102 x i32], ptr %18, i64 %20, i64 %26
+  store i32 %40, ptr %41, align 4
+  %42 = add nuw nsw i64 %26, 1
+  %43 = icmp eq i64 %42, 102
+  br i1 %43, label %22, label %25, !llvm.loop !15
 
-39:                                               ; preds = %29
-  %40 = add i32 %32, -4
-  %41 = icmp ult i32 %40, -2
-  %42 = select i1 %41, i32 0, i32 %34
-  br label %43
+44:                                               ; preds = %22, %47
+  %45 = phi i64 [ %48, %47 ], [ 0, %22 ]
+  %46 = trunc i64 %45 to i32
+  br label %50
 
-43:                                               ; preds = %39, %36
-  %44 = phi i32 [ %38, %36 ], [ %42, %39 ]
-  %45 = getelementptr inbounds [51 x [102 x i32]], ptr %22, i64 0, i64 %24, i64 %30
-  store i32 %44, ptr %45, align 4
-  %46 = add nuw nsw i64 %30, 1
-  %47 = icmp eq i64 %46, 102
-  br i1 %47, label %26, label %29, !llvm.loop !17
+47:                                               ; preds = %50
+  %48 = add nuw nsw i64 %45, 1
+  %49 = icmp eq i64 %48, 51
+  br i1 %49, label %59, label %44, !llvm.loop !12
 
-48:                                               ; preds = %26
-  store ptr %22, ptr @current, align 8, !tbaa !7
-  store ptr %21, ptr @next, align 8, !tbaa !7
-  br label %49
+50:                                               ; preds = %50, %44
+  %51 = phi i64 [ 0, %44 ], [ %57, %50 ]
+  %52 = getelementptr inbounds [102 x i32], ptr %18, i64 %45, i64 %51
+  %53 = load i32, ptr %52, align 4, !tbaa !7
+  %54 = icmp eq i32 %53, 0
+  %55 = select i1 %54, i32 -1, i32 -16776961
+  %56 = trunc i64 %51 to i32
+  tail call void @drawCell(i32 noundef %56, i32 noundef %46, i32 noundef %55)
+  %57 = add nuw nsw i64 %51, 1
+  %58 = icmp eq i64 %57, 102
+  br i1 %58, label %47, label %50, !llvm.loop !13
 
-49:                                               ; preds = %52, %48
-  %50 = phi i64 [ 0, %48 ], [ %53, %52 ]
-  %51 = trunc i64 %50 to i32
-  br label %55
+59:                                               ; preds = %47
+  %60 = load ptr, ptr @app.current, align 8, !tbaa !16
+  %61 = load ptr, ptr @app.next, align 8, !tbaa !16
+  store ptr %61, ptr @app.current, align 8, !tbaa !16
+  store ptr %60, ptr @app.next, align 8, !tbaa !16
+  %62 = tail call i32 @simFlush() #4
+  %63 = icmp eq i32 %62, 0
+  br i1 %63, label %16, label %64, !llvm.loop !18
 
-52:                                               ; preds = %55
-  %53 = add nuw nsw i64 %50, 1
-  %54 = icmp eq i64 %53, 51
-  br i1 %54, label %65, label %49, !llvm.loop !14
-
-55:                                               ; preds = %55, %49
-  %56 = phi i64 [ 0, %49 ], [ %63, %55 ]
-  %57 = load ptr, ptr @current, align 8, !tbaa !7
-  %58 = getelementptr inbounds [51 x [102 x i32]], ptr %57, i64 0, i64 %50, i64 %56
-  %59 = load i32, ptr %58, align 4, !tbaa !11
-  %60 = icmp eq i32 %59, 0
-  %61 = select i1 %60, i32 -1, i32 -16776961
-  %62 = trunc i64 %56 to i32
-  tail call void @drawCell(i32 noundef %62, i32 noundef %51, i32 noundef %61)
-  %63 = add nuw nsw i64 %56, 1
-  %64 = icmp eq i64 %63, 102
-  br i1 %64, label %52, label %55, !llvm.loop !15
-
-65:                                               ; preds = %52
+64:                                               ; preds = %59
   ret void
 }
 
+declare i32 @simFlush() local_unnamed_addr #1
+
 attributes #0 = { nounwind uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
 attributes #1 = { "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #2 = { mustprogress nofree norecurse nosync nounwind willreturn memory(read, inaccessiblemem: none) uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
-attributes #3 = { nofree norecurse nosync nounwind memory(readwrite, inaccessiblemem: none) uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+attributes #2 = { mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: read) uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+attributes #3 = { nofree norecurse nosync nounwind memory(argmem: readwrite) uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
 attributes #4 = { nounwind }
 
 !llvm.module.flags = !{!0, !1, !2, !3}
@@ -441,13 +429,14 @@ attributes #4 = { nounwind }
 !5 = distinct !{!5, !6}
 !6 = !{!"llvm.loop.mustprogress"}
 !7 = !{!8, !8, i64 0}
-!8 = !{!"any pointer", !9, i64 0}
+!8 = !{!"int", !9, i64 0}
 !9 = !{!"omnipotent char", !10, i64 0}
 !10 = !{!"Simple C/C++ TBAA"}
-!11 = !{!12, !12, i64 0}
-!12 = !{!"int", !9, i64 0}
+!11 = distinct !{!11, !6}
+!12 = distinct !{!12, !6}
 !13 = distinct !{!13, !6}
 !14 = distinct !{!14, !6}
 !15 = distinct !{!15, !6}
-!16 = distinct !{!16, !6}
-!17 = distinct !{!17, !6}
+!16 = !{!17, !17, i64 0}
+!17 = !{!"any pointer", !9, i64 0}
+!18 = distinct !{!18, !6}
