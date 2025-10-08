@@ -8,8 +8,7 @@ make
 ```
 Here is analyze of most common instruction. In trace we see that call is main user of instructions. It probably relates to the fact, that app.c is divided into small functions that are not inlined.
 
-[](hw2/pics/O3-opt-1-windows_length_1.png)
-[](hw2/pics/O3-opt-1-windows_length_2.png)
-[](hw2/pics/O3-opt-1-windows_length_3.png)
-[](hw2/pics/O3-opt-1-windows_length_4.png)
-
+![](pics/O3-opt-1-windows_length_1.png)
+![](pics/O3-opt-1-windows_length_2.png)
+![](pics/O3-opt-1-windows_length_3.png)
+![](pics/O3-opt-1-windows_length_4.png)
