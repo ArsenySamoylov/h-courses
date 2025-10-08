@@ -4,71 +4,12 @@ This is example of LLVM pass that collect static information about app IR and in
 
 ## Usage:
 ```
-sudo apt install llvm
-clang++ Pass6_cfg.cpp -fPIC -shared -I$(llvm-config --includedir) -o libPass.so
-clang -fpass-plugin=./libPass.so log.c ../SDL/sim.c ../SDL/app2.c ../SDL/start.c -lSDL2
+make
 ```
+Here is analyze of most common instruction. In trace we see that call is main user of instructions. It probably relates to the fact, that app.c is divided into small functions that are not inlined.
 
-## Examples for Functions processing:
-1. Pass registration
-```
-clang++ Pass1_reg.cpp -fPIC -shared -I$(llvm-config --includedir) -o libPass.so
-clang -fpass-plugin=./libPass.so c_examples/hello.c
-opt hello.ll -load-pass-plugin ./libPass.so -passes="function(mem2reg,sroa,myFuncPass),module(myModPass)" -o a.out -print-pipeline-passes
-```
-> For Mac arm64 (arm64-apple-darwin) add `-undefined dynamic_lookup` to the Pass compilation line (llvm version should be > 15).
-2. Print Functions name
-```
-clang++ Pass2_names.cpp -fPIC -shared -I$(llvm-config --includedir) -o libPass.so
-clang -fpass-plugin=./libPass.so c_examples/hello.c -O2
-```
-3. Dump Functions, BasicBlocks and Instructions
-```
-clang++ Pass3_dump.cpp -fPIC -shared -I$(llvm-config --includedir) -o libPass.so
-clang -fpass-plugin=./libPass.so c_examples/hello.c -O2
-```
-4. Dump Uses of Functions, BasicBlocks and Instructions
-```
-clang++ Pass4_uses.cpp -fPIC -shared -I$(llvm-config --includedir) -o libPass.so
-clang -fpass-plugin=./libPass.so c_examples/hello.c
-```
-5. Change Binary operations to subtraction
-```
-clang++ Pass5_change.cpp -fPIC -shared -I$(llvm-config --includedir) -o libPass.so
+[](hw2/pics/O3-opt-1-windows_length_1.png)
+[](hw2/pics/O3-opt-1-windows_length_2.png)
+[](hw2/pics/O3-opt-1-windows_length_3.png)
+[](hw2/pics/O3-opt-1-windows_length_4.png)
 
-clang c_examples/calc.c
-./a.out
-
-clang -fpass-plugin=./libPass.so c_examples/calc.c -emit-llvm -S -o calc.ll
-clang -fpass-plugin=./libPass.so c_examples/calc.c
-./a.out
-```
-6. Instrumentation for code profiling
-```
-clang++ Pass6_cfg.cpp -fPIC -shared -I$(llvm-config --includedir) -o libPass.so
-
-clang -fpass-plugin=./libPass.so c_examples/calc.c -emit-llvm -S -o calc.ll
-clang -fpass-plugin=./libPass.so c_examples/calc.c log.c
-./a.out
-
-clang -fpass-plugin=./libPass.so c_examples/fact.c -emit-llvm -S -o fact.ll
-clang -fpass-plugin=./libPass.so c_examples/fact.c log.c
-./a.out 4
-```
-7. Example of bad optimization Pass
-```
-clang++ Pass7_opt.cpp -fPIC -shared -I$(llvm-config --includedir) -o libPass.so
-
-clang c_examples/exp1.c
-time ./a.out 1000
-clang -fpass-plugin=./libPass.so c_examples/exp1.c
-time ./a.out 1000
-
-clang c_examples/exp2.c
-time ./a.out 1000
-clang -fpass-plugin=./libPass.so c_examples/exp2.c
-time ./a.out 1000
-```
-
-## Possible instructions classes:
-https://llvm.org/doxygen/classllvm_1_1Instruction.html

@@ -35,9 +35,13 @@ struct MyModPass : public PassInfoMixin<MyModPass> {
             
             for(auto &O : I.operands()) {
               if(auto inst = dyn_cast<Instruction>(O)) {
-                if(!dyn_cast<PHINode>(O))
+                if(dyn_cast<PHINode>(O))
                   continue;
 
+                if(auto call = dyn_cast<CallInst>(&O)) {
+                  if(call->getName() == "callLogger")
+                    continue;
+                }
                 builder.SetInsertPoint(&I);
                 auto *user_inst_name = builder.CreateGlobalStringPtr(    I.getOpcodeName());
                 auto *used_inst_name = builder.CreateGlobalStringPtr(inst->getOpcodeName());
