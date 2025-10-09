@@ -1,0 +1,3 @@
+[submodule "risc_simulator"]
+	path = risc_simulator
+	url = https://github.com/MaxGroshev/risc_simulator.git
