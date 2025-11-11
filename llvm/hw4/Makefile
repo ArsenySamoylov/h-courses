@@ -10,7 +10,7 @@ llvm_ir:
 	clang app/app.c -emit-llvm -S -O2 -o app/app_O2.ll
 
 asm2ir_1: src/app_asm_IRgen_1.cpp app/sim.c
-	clang++ -o asm_ir_1.out  app/sim.c src/app_asm_IRgen_1.cpp ${ASM_GEN_FLAGS}
+	clang++ -o asm_ir_1.out  app/sim.c src/app_asm_IRgen_1.cpp -g -lasan ${ASM_GEN_FLAGS}
 	./asm_ir_1.out src/app.s
 
 asm2ir_2: src/app_asm_IRgen_2.cpp app/sim.c

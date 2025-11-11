@@ -1,22 +1,35 @@
-entry
-    XOR x1 x1 x1
-main_loop
+bb0
     XOR x2 x2 x2
-loop_y
-    XOR x5 x5 x5
-    MUL x3 x2 x1
-loop_x
-    MUL x6 x3 x5
-    SUBi x6 x6 16777216
-    PUT_PIXEL x5 x2 x6
-    INC_NEi x4 x5 512
-    BR_COND x4 loop_x
-inc_y
-    INC_NEi x4 x2 256
-    BR_COND x4 loop_y
-inc_step
+    B bb1
+bb1
+    MUL x3 x2 5
+    XOR x8 x8 x8
+    B bb15
+bb8
     FLUSH
-    INC_NEi x4 x1 1000
-    BR_COND x4 main_loop
-exit
-    EXIT
+    XOR x2 x2 x2
+    B bb1
+bb10
+    ADD x2 x2 1
+    CMP x11 x2 51
+    BR_COND x11 bb8 bb1
+bb15
+    RAND_COLOR x9
+    MUL x10 x8 5
+    PUT_CELL x10 x3 x9
+    
+    ADD x10 x10 1
+    PUT_CELL x10 x3 x9
+    
+    ADD x10 x10 1
+    PUT_CELL x10 x3 x9
+    
+    ADD x10 x10 1
+    PUT_CELL x10 x3 x9
+
+    ADD x10 x10 1
+    PUT_CELL x10 x3 x9
+
+    ADD x8 x8 1
+    CMP x11 x8 102
+    BR_COND x11 bb10 bb15
