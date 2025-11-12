@@ -13,14 +13,8 @@
 #include <unordered_map>
 using namespace llvm;
 
-//    XOR x1 x1 x1
-//    MUL x3 x2 x1
-//    SUBi x6 x6 16777216
-//    PUT_PIXEL x5 x2 x6
-//    INC_NEi x4 x5 512
-//    BR_COND x4 label_13
-//    FLUSH
-//    EXIT
+#define BLUE 0xFF0000FF
+#define WHITE 0xFFFFFFFF
 
 const int REG_FILE_SIZE = 8;
 
@@ -37,14 +31,12 @@ int main(int argc, char *argv[]) {
   }
 
   LLVMContext context;
-  // ; ModuleID = 'top'
-  // source_filename = "top"
   Module *module = new Module("top", context);
   IRBuilder<> builder(context);
   Type *voidType = Type::getVoidTy(context);
   Type *int32Type = Type::getInt32Ty(context);
 
-  //[32 x i32] regFile = {0, 0, 0, 0}
+  // [8 x i32] regFile = {0, 0, 0, 0, 0, 0, 0, 0}
   ArrayType *regFileType = ArrayType::get(int32Type, REG_FILE_SIZE);
   GlobalVariable *regFile = new GlobalVariable(
       *module, regFileType, false, GlobalValue::PrivateLinkage, 0, "regFile");
@@ -62,16 +54,20 @@ int main(int argc, char *argv[]) {
   outs() << "\n#[FILE]:\nBBs:";
 
   while (input >> name) {
-    if (!name.compare("XOR") || !name.compare("MUL") || !name.compare("SUBi") ||
-        !name.compare("PUT_PIXEL") || !name.compare("INC_NEi")) {
+    if (!name.compare("XOR") || !name.compare("MUL") || !name.compare("ADD") ||
+        !name.compare("PUT_CELL") || !name.compare("CMP")) {
       input >> arg >> arg >> arg;
       continue;
     }
     if (!name.compare("BR_COND")) {
-      input >> arg >> arg;
+      input >> arg >> arg >> arg;
       continue;
     }
-    if (!name.compare("EXIT") || !name.compare("FLUSH")) {
+    if (!name.compare("RAND_COLOR") || !name.compare("B")) {
+      input >> arg;
+      continue;
+    }
+    if (!name.compare("FLUSH")) {
       continue;
     }
 
@@ -82,17 +78,43 @@ int main(int argc, char *argv[]) {
   input.close();
   input.open(argv[1]);
 
-  // declare void @simPutPixel(i32 noundef, i32 noundef, i32 noundef)
+  // Declare external simulation functions
   ArrayRef<Type *> simPutPixelParamTypes = {int32Type, int32Type, int32Type};
   FunctionType *simPutPixelType =
       FunctionType::get(voidType, simPutPixelParamTypes, false);
   FunctionCallee simPutPixelFunc =
       module->getOrInsertFunction("simPutPixel", simPutPixelType);
 
-  // declare void @simFlush(...)
   FunctionType *simFlushType = FunctionType::get(voidType, false);
   FunctionCallee simFlushFunc =
       module->getOrInsertFunction("simFlush", simFlushType);
+
+  FunctionType *simRandType = FunctionType::get(int32Type, false);
+  FunctionCallee simRandFunc =
+      module->getOrInsertFunction("simRand", simRandType);
+
+  BasicBlock *entryBB = BasicBlock::Create(context, "entry", mainFunc);
+  builder.SetInsertPoint(entryBB);
+  
+  std::string firstBB;
+  input >> firstBB;
+  input.close();
+  input.open(argv[1]);
+  
+  while (input >> name) {
+    if (name.compare("XOR") && name.compare("MUL") && name.compare("ADD") && 
+        name.compare("PUT_CELL") && name.compare("CMP") && 
+        name.compare("BR_COND") && name.compare("RAND_COLOR") && 
+        name.compare("B") && name.compare("FLUSH") && name.compare("EXIT")) {
+      firstBB = name;
+      break;
+    }
+  }
+  input.close();
+  input.open(argv[1]);
+  
+  builder.CreateBr(BBMap[firstBB]);
+  outs() << "BB entry\n";
 
   while (input >> name) {
     if (!name.compare("EXIT")) {
@@ -104,137 +126,167 @@ int main(int argc, char *argv[]) {
       }
       continue;
     }
-    if (!name.compare("PUT_PIXEL")) {
+    
+    if (!name.compare("PUT_CELL")) {
       input >> arg;
-      outs() << "\tPUT_PIXEL " << arg;
-      Value *arg1 = builder.CreateLoad(
-          int32Type, builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                std::stoi(arg.substr(1))));
+      outs() << "\tPUT_CELL " << arg;
+      Value *x_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      Value *x_val = builder.CreateLoad(int32Type, x_ptr);
+      
       input >> arg;
       outs() << " " << arg;
-      Value *arg2 = builder.CreateLoad(
-          int32Type, builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                std::stoi(arg.substr(1))));
+      Value *y_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      Value *y_val = builder.CreateLoad(int32Type, y_ptr);
+      
       input >> arg;
       outs() << " " << arg << '\n';
-      Value *arg3 = builder.CreateLoad(
-          int32Type, builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                std::stoi(arg.substr(1))));
-      Value *args[] = {arg1, arg2, arg3};
+      Value *color_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      Value *color_val = builder.CreateLoad(int32Type, color_ptr);
+      
+      // Generate 4 simPutPixel calls
+      Value *args[] = {x_val, y_val, color_val};
       builder.CreateCall(simPutPixelFunc, args);
+      
+      Value *y_plus1 = builder.CreateAdd(y_val, builder.getInt32(1));
+      Value *args1[] = {x_val, y_plus1, color_val};
+      builder.CreateCall(simPutPixelFunc, args1);
+      
+      Value *y_plus2 = builder.CreateAdd(y_val, builder.getInt32(2));
+      Value *args2[] = {x_val, y_plus2, color_val};
+      builder.CreateCall(simPutPixelFunc, args2);
+      
+      Value *y_plus3 = builder.CreateAdd(y_val, builder.getInt32(3));
+      Value *args3[] = {x_val, y_plus3, color_val};
+      builder.CreateCall(simPutPixelFunc, args3);
+      
       continue;
     }
+    
     if (!name.compare("FLUSH")) {
       outs() << "\tFLUSH\n";
       builder.CreateCall(simFlushFunc);
       continue;
     }
+    
     if (!name.compare("XOR")) {
       input >> arg;
       outs() << "\t" << arg;
-      // res
-      Value *res_p = builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                std::stoi(arg.substr(1)));
+      Value *res_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      
       input >> arg;
       outs() << " = " << arg;
-      // arg1
-      Value *arg1_p = builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                 std::stoi(arg.substr(1)));
+      Value *arg1_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      Value *arg1_val = builder.CreateLoad(int32Type, arg1_ptr);
+      
       input >> arg;
       outs() << " ^ " << arg << '\n';
-      // arg2
-      Value *arg2_p = builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                 std::stoi(arg.substr(1)));
-      Value *xor_arg1_arg2 =
-          builder.CreateXor(builder.CreateLoad(int32Type, arg1_p),
-                            builder.CreateLoad(int32Type, arg2_p));
-      builder.CreateStore(xor_arg1_arg2, res_p);
+      Value *arg2_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      Value *arg2_val = builder.CreateLoad(int32Type, arg2_ptr);
+      
+      Value *xor_result = builder.CreateXor(arg1_val, arg2_val);
+      builder.CreateStore(xor_result, res_ptr);
       continue;
     }
+    
     if (!name.compare("MUL")) {
       input >> arg;
       outs() << "\t" << arg;
-      // res
-      Value *res_p = builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                std::stoi(arg.substr(1)));
+      Value *res_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      
       input >> arg;
       outs() << " = " << arg;
-      // arg1
-      Value *arg1_p = builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                 std::stoi(arg.substr(1)));
+      Value *arg1_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      Value *arg1_val = builder.CreateLoad(int32Type, arg1_ptr);
+      
       input >> arg;
       outs() << " * " << arg << '\n';
-      // arg2
-      Value *arg2_p = builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                 std::stoi(arg.substr(1)));
-      Value *mul_arg1_arg2 =
-          builder.CreateMul(builder.CreateLoad(int32Type, arg1_p),
-                            builder.CreateLoad(int32Type, arg2_p));
-      builder.CreateStore(mul_arg1_arg2, res_p);
+      Value *arg2_val = builder.getInt32(std::stoi(arg));
+      
+      Value *mul_result = builder.CreateMul(arg1_val, arg2_val);
+      builder.CreateStore(mul_result, res_ptr);
       continue;
     }
-    if (!name.compare("SUBi")) {
+    
+    if (!name.compare("CMP")) {
       input >> arg;
       outs() << "\t" << arg;
-      // res
-      Value *res_p = builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                std::stoi(arg.substr(1)));
+      Value *res_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      
       input >> arg;
       outs() << " = " << arg;
-      // arg1
-      Value *arg1_p = builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                 std::stoi(arg.substr(1)));
+      Value *arg1_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      Value *arg1_val = builder.CreateLoad(int32Type, arg1_ptr);
+      
       input >> arg;
-      outs() << " - " << arg << '\n';
-      // arg2
-      Value *arg2 = builder.getInt32(std::stoi(arg));
-      Value *sub_arg1_arg2 =
-          builder.CreateSub(builder.CreateLoad(int32Type, arg1_p), arg2);
-      builder.CreateStore(sub_arg1_arg2, res_p);
+      outs() << " == " << arg << '\n';
+      Value *arg2_val = builder.getInt32(std::stoi(arg));
+      
+      Value *cmp_result = builder.CreateICmpEQ(arg1_val, arg2_val);
+      Value *cmp_result_i32 = builder.CreateZExt(cmp_result, int32Type);
+      builder.CreateStore(cmp_result_i32, res_ptr);
       continue;
     }
-
-    if (!name.compare("INC_NEi")) {
+    
+    if (!name.compare("ADD")) {
       input >> arg;
       outs() << "\t" << arg;
-      // res
-      Value *res_p = builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                std::stoi(arg.substr(1)));
+      Value *res_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      
       input >> arg;
-      outs() << " = ++" << arg;
-      // arg1
-      Value *arg1_p = builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                 std::stoi(arg.substr(1)));
-      Value *arg1 = builder.CreateAdd(builder.CreateLoad(int32Type, arg1_p),
-                                      builder.getInt32(1));
-      builder.CreateStore(arg1, arg1_p);
+      outs() << " = " << arg << " + ";
+      Value *arg1_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      Value *arg1_val = builder.CreateLoad(int32Type, arg1_ptr);
+      
       input >> arg;
-      outs() << " != " << arg << '\n';
-      // arg2
-      Value *arg2 = builder.getInt32(std::stoi(arg));
-      Value *cond = builder.CreateICmpNE(arg1, arg2);
-      builder.CreateStore(cond, res_p);
+      outs() << arg << '\n';
+      Value *arg2_val = builder.getInt32(std::stoi(arg));
+      
+      Value *add_result = builder.CreateAdd(arg1_val, arg2_val);
+      builder.CreateStore(add_result, res_ptr);
       continue;
     }
+    
     if (!name.compare("BR_COND")) {
       input >> arg;
       outs() << "\tif (" << arg;
-      // reg1
-      Value *reg_p = builder.CreateConstGEP2_32(regFileType, regFile, 0,
-                                                std::stoi(arg.substr(1)));
-      Value *reg_i1 = builder.CreateTrunc(builder.CreateLoad(int32Type, reg_p),
-                                          builder.getInt1Ty());
+      Value *cond_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      Value *cond_val = builder.CreateLoad(int32Type, cond_ptr);
+      Value *cond_bool = builder.CreateTrunc(cond_val, builder.getInt1Ty());
+      
       input >> arg;
       outs() << ") then BB:" << arg;
       input >> name;
       outs() << " else BB:" << name << '\n';
-      outs() << "BB " << name << '\n';
-      builder.CreateCondBr(reg_i1, BBMap[arg], BBMap[name]);
+      
+      builder.CreateCondBr(cond_bool, BBMap[arg], BBMap[name]);
       builder.SetInsertPoint(BBMap[name]);
+      outs() << "BB " << name << '\n';
+      continue;
+    }
+    
+    if (!name.compare("B")) {
+      input >> name;
+      outs() << "\tgo to " << name << "\n";
+      builder.CreateBr(BBMap[name]);
+      continue;
+    }
+    
+    if (!name.compare("RAND_COLOR")) {
+      input >> arg;
+      outs() << "\t" << arg << " = rand_color()\n";
+      Value *res_ptr = builder.CreateConstGEP2_32(regFileType, regFile, 0, std::stoi(arg.substr(1)));
+      
+      Value *rand_val = builder.CreateCall(simRandFunc);
+      Value *mod_result = builder.CreateURem(rand_val, builder.getInt32(2));
+      Value *is_nonzero = builder.CreateICmpNE(mod_result, builder.getInt32(0));
+      Value *color_val = builder.CreateSelect(is_nonzero, 
+                                            builder.getInt32(WHITE), 
+                                            builder.getInt32(BLUE));
+      builder.CreateStore(color_val, res_ptr);
       continue;
     }
 
-    if (builder.GetInsertBlock()) {
+    if (builder.GetInsertBlock() && builder.GetInsertBlock()->getTerminator() == nullptr) {
       builder.CreateBr(BBMap[name]);
       outs() << "\tbranch to " << name << '\n';
     }
@@ -259,6 +311,9 @@ int main(int argc, char *argv[]) {
     }
     if (fnName == "simPutPixel") {
       return reinterpret_cast<void *>(simPutPixel);
+    }
+    if (fnName == "simRand") {
+      return reinterpret_cast<void *>(simRand);
     }
     return nullptr;
   });
