@@ -1,21 +1,32 @@
-(NODE alfa 16777216)
+const DEAD = false
+const ALIVE = true
 
-(NODE color (x y step)
-    (- (* step (*x y)) alfa)
-)
+const CELL_SIZE = 5
 
-(NODE loop_test ()
-    (LOOP i 0 10
-    )
-)
+const FIELD_WIDTH = WINDOW_WIDTH / CELL_SIZE
+const FIELD_HEIGHT = WINDOW_HEIGHT / CELL_SIZE
 
-(NODE call_loop_test ()
-    (LOOP i 0 10
-        (loop_test)
-    )
-)
+const BLUE = 0xFF0000FF
+const WHITE = 0xFFFFFFFF
 
-(NODE app ()
-    (PUT_PIXEL (/ X_SIZE 2) (/ Y_SIZE 2) -1)
-    (FLUSH)
-)
+func app() {
+	for {
+		for y := 0; y < FIELD_HEIGHT; y++ {
+			for x := 0; x < FIELD_WIDTH; x++ {
+				var color int
+				if simRand()%2 != 0 {
+					color = BLUE
+				} else {
+					color = WHITE
+				}
+
+				for dx := 0; dx < CELL_SIZE; dx++ {
+					for dy := 0; dy < CELL_SIZE; dy++ {
+						simPutPixel(CELL_SIZE*x+dx, CELL_SIZE*y+dy, color)
+					}
+				}
+			}
+		}
+		simFlush()
+	}
+}

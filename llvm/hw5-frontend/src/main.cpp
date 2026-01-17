@@ -1,8 +1,11 @@
 #include "../sim.h"
-#include "gen/NodeLangLexer.h"
-#include "gen/NodeLangParser.h"
-#include "gen/NodeLangVisitor.h"
+
+#include "gen/MiniGoLexer.h"
+#include "gen/MiniGoParser.h"
+#include "gen/MiniGoVisitor.h"
+
 #include "antlr4-runtime.h"
+
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/IRBuilder.h"
@@ -11,23 +14,37 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
+
 #include <cstddef>
 #include <fstream>
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
+#include <strstream>
 #include <vector>
+
 using namespace llvm;
 
-struct TreeLLVMWalker : public NodeLangVisitor {
-  std::vector<std::map<std::string, Value *>> vars;
+struct TreeLLVMWalker : public MiniGoVisitor {
+  enum class Scope {
+    Local,
+    Global,
+  };
+
+  std::map<std::string, Value*> local_vars;
+  std::map<std::string, Value*> global_vars;
+
   Function *currFunc;
   LLVMContext *ctxLLVM;
   Module *module;
   IRBuilder<> *builder;
+  
   bool interpretMode;
+  
   Type *int32Type;
   Type *voidType;
+
   TreeLLVMWalker(LLVMContext *ctxLLVM, IRBuilder<> *builder, Module *module,
                  bool interpretMode)
       : ctxLLVM(ctxLLVM), builder(builder), module(module),
@@ -89,245 +106,108 @@ struct TreeLLVMWalker : public NodeLangVisitor {
     builder->CreateRet(builder->getInt32(0));
   }
 
-  antlrcpp::Any visitProgram(NodeLangParser::ProgramContext *ctx) override {
+  antlrcpp::Any visitProgram(MiniGoParser::ProgramContext *ctx) override {
     outs() << "visitProgram\n";
     if (interpretMode) {
       regGraphicFuncs();
     } else {
       regGraphicFuncsIntr();
     }
-    vars.push_back(
-        std::map<std::string, Value *>{{"Y_SIZE", builder->getInt32(256)},
-                                       {"X_SIZE", builder->getInt32(512)}});
-    // program: nodeDecl+;
-    for (auto it : ctx->nodeDecl()) {
-      visitNodeDecl(it);
+
+    for (auto it : ctx->topLevelDecl()) {
+      visitTopLevelDecl(it);
     }
     return nullptr;
   }
 
-  antlrcpp::Any visitNodeDecl(NodeLangParser::NodeDeclContext *ctx) override {
-    outs() << "visitNodeDecl\n";
-    // nodeDecl: '(' 'NODE' (varDecl | funcDecl) ')';
-    if (ctx->varDecl()) {
-      return visitVarDecl(ctx->varDecl());
-    }
-    if (ctx->funcDecl()) {
-      return visitFuncDecl(ctx->funcDecl());
-    }
+  antlrcpp::Any visitTopLevelDecl(MiniGoParser::TopLevelDeclContext *ctx) override {
+    outs() << "visitTopLevelDecl\n";
+    if (ctx->constDecl())
+      return visitConstDecl(ctx->constDecl());
     return nullptr;
   }
 
-  antlrcpp::Any visitFuncDecl(NodeLangParser::FuncDeclContext *ctx) override {
-    // funcDecl: ID '(' ID* ')' node+;
-    std::string name = ctx->ID()[0]->getText();
-    outs() << "visitFuncDecl: " << name << '\n';
-    vars.emplace_back();
-
-    // (i32 %0, i32 %1, i32 %2)
-    std::vector<Type *> funcParamTypes(ctx->ID().size() - 1, int32Type);
-
-    // define i32 @color(i32 %0, i32 %1, i32 %2)
-    FunctionType *funcType =
-        FunctionType::get(int32Type, funcParamTypes, false);
-    Function *func = Function::Create(funcType, Function::ExternalLinkage,
-                                      ctx->ID()[0]->getText(), module);
-    // entry:
-    BasicBlock *entryBB = BasicBlock::Create(*ctxLLVM, "entry", func);
-    builder->SetInsertPoint(entryBB);
-    currFunc = func;
-
-    // (x y step) -> (i32 %0, i32 %1, i32 %2)
-    for (int arg = 1; arg < ctx->ID().size(); arg++) {
-      registerVar(ctx->ID()[arg]->getText(), func->getArg(arg - 1));
-    }
-
-    // Add instructions
-    Value *res = nullptr;
-    for (auto it : ctx->node()) {
-      res = visitNode(it).as<Value *>();
-    }
-    vars.pop_back();
-    builder->CreateRet(res);
-    return nullptr;
+  antlrcpp::Any visitConstDecl(MiniGoParser::ConstDeclContext *ctx) override {
+    std::string name = ctx->ID()->getText();
+    outs() << "visitConstDecl: "<< name << "\n";
+    return registerVar(name, visitExpr(ctx->expr()).as<Value*>(), Scope::Global);
   }
 
-  antlrcpp::Any visitNode(NodeLangParser::NodeContext *ctx) override {
-    outs() << "visitNode\n";
-    // node: nodeDecl | ... ;
-    if (ctx->nodeDecl()) {
-      return visitNodeDecl(ctx->nodeDecl());
+  antlrcpp::Any visitExpr(MiniGoParser::ExprContext *ctx) override {
+    outs() << "visitExpr\n";
+    return visitPrimary(ctx->primary());
+  }
+
+  antlrcpp::Any visitPrimary(MiniGoParser::PrimaryContext *ctx) override  {
+    outs  () << "visitPrimary\n";
+    if (ctx->literal()){
+      outs() << "visitPrimary:" << ctx->literal()->getText() << "\n";
+      return visitLiteral(ctx->literal());
+    }
+    if (ctx->ID()) {
+      auto name = ctx->ID()->getText();
+      outs() << "visitPrimary:" << name << "\n";
+      return getVar(name);
     }
     if (ctx->expr()) {
-      // node: ... | expr ;
       return visitExpr(ctx->expr());
     }
-    // node: ... | '{' ID node* '}';
-    if (ctx->ID()) {
-      std::string name = ctx->ID()->getText();
-      if (name == "LOOP") {
-        // node: ... | '{' LOOP it begin end node* '}';
-        return visitLoop(ctx);
-      }
-      // node: ... | '{' FuncID node* '}'
-      return visitFuncCall(name, ctx);
-    }
-    return nullptr;
+
+    throw std::runtime_error("Empty primary expression");
   }
 
-  antlrcpp::Any visitLoop(NodeLangParser::NodeContext *ctx) {
-    outs() << "visitLoop\n";
-    // node: ... | '{' LOOP it begin end node* '}';
-    vars.emplace_back();
-    if (ctx->node().size() < 3) {
-      outs() << "[Error] Too few arguments for LOOP\n";
-      return nullptr;
+  antlrcpp::Any visitLiteral(MiniGoParser::LiteralContext *ctx) override  {
+    if (ctx->INT())
+      return (Value*)builder->getInt32(std::stoi(ctx->INT()->getText()));
+    if (ctx->BOOL()) {
+      if(ctx->BOOL()->getText() == "true")
+        return (Value*)builder->getInt1(builder->getTrue());
+      else
+        return (Value*)builder->getInt1(builder->getFalse());
+
     }
-    Value *beg = visitNode(ctx->node()[1]).as<Value *>();
-    Value *end = visitNode(ctx->node()[2]).as<Value *>();
-
-    // br label cmpBB
-    BasicBlock *prevBB = builder->GetInsertBlock();
-    // it = phi i32 [ 0, prevBB ], [ inc, iterationBB ]
-    // cond = icmp eq i32 %1, end
-    // br i1 cond, exitBB, iterationBB
-    BasicBlock *cmpBB = BasicBlock::Create(*ctxLLVM, "", currFunc);
-    // inc = add i32 it, 1
-    // br label cmpBB
-    BasicBlock *iterationBB = BasicBlock::Create(*ctxLLVM, "", currFunc);
-    // function continuation
-    BasicBlock *exitBB = BasicBlock::Create(*ctxLLVM, "", currFunc);
-
-    // br label cmpBB
-    builder->CreateBr(cmpBB);
-    builder->SetInsertPoint(cmpBB);
-    // it = phi i32 [ 0, prevBB ], [ inc, iterationBB ]
-    PHINode *it = builder->CreatePHI(builder->getInt32Ty(), 2);
-    it->addIncoming(beg, prevBB);
-    registerVar(ctx->node()[0]->getText(), it);
-    // cond = icmp eq i32 %1, end
-    auto cond = builder->CreateICmpEQ(it, end);
-    // br i1 cond, exitBB, iterationBB
-    builder->CreateCondBr(cond, exitBB, iterationBB);
-    builder->SetInsertPoint(iterationBB);
-
-    // Iteration code generation
-    for (int i = 3; i < ctx->node().size(); i++) {
-      visitNode(ctx->node()[i]);
+    if (ctx->HEX()) {
+      abort();
     }
-
-    // inc = add i32 it, 1
-    Value *inc = builder->CreateAdd(it, builder->getInt32(1));
-    // br label cmpBB
-    builder->CreateBr(cmpBB);
-    // it = phi i32 [ 0, prevBB ], [ inc, iterationBB ]
-    it->addIncoming(inc, builder->GetInsertBlock());
-    builder->SetInsertPoint(exitBB);
-
-    vars.pop_back();
-    return (Value *)it;
+    throw std::runtime_error("Unknow Literal Type");
   }
 
-  antlrcpp::Any visitFuncCall(std::string &name,
-                              NodeLangParser::NodeContext *ctx) {
-    // node: ... | '{' FuncID node* '}'
-    outs() << "visitFuncCall: " << name << '\n';
-    // i32 @color(i32 %0, i32 %1, i32 %2)
-    Function *func = module->getFunction(name);
-    if (!func) {
-      outs() << "[Error] Unknown Function name: " << name << '\n';
-      return nullptr;
+  // Helper Functions
+  Value *registerVar(const std::string &name, Value *val, Scope scp ) {
+    outs() << "registerVar: " << name << "\n";
+    switch (scp) {
+     case Scope::Local:
+        local_vars[name] = val;
+        break;
+      case Scope::Global:
+        global_vars[name] = val;
+        break;
+      default:
+        throw std::runtime_error("Unknow scope type");
     }
-    int argSize = ctx->node().size();
-    if (argSize != func->arg_size()) {
-      outs() << "[Error] Wrong arguments number for " << name << '\n';
-      return nullptr;
-    }
-    // (i32 %13, i32 %6, i32 %1)
-    std::vector<Value *> args;
-    args.reserve(argSize);
-    for (int i = 0; i < argSize; i++) {
-      args.push_back(visitNode(ctx->node()[i]));
-    }
-    // %16 = call i32 @color(i32 %13, i32 %6, i32 %1)
-    return (Value *)builder->CreateCall(func, args);
-  }
 
-  antlrcpp::Any visitVarDecl(NodeLangParser::VarDeclContext *ctx) override {
-    // varDecl: ID expr;
-    std::string name = ctx->ID()->getText();
-    outs() << "visitVarDecl: " << name << '\n';
-    return registerVar(name, visitExpr(ctx->expr()).as<Value *>());
-  }
-
-  antlrcpp::Any visitExpr(NodeLangParser::ExprContext *ctx) override {
-    outs() << "visitExpr: ";
-    // ID
-    if (ctx->ID()) {
-      outs() << ctx->ID()->getText() << '\n';
-      return searchVar(ctx->ID()->getText());
-    }
-    // INT
-    if (ctx->INT()) {
-      outs() << ctx->INT()->getText() << '\n';
-      return (Value *)builder->getInt32(std::stoi(ctx->INT()->getText()));
-    }
-    // '-' expr
-    if (ctx->children.size() == 2) {
-      outs() << "neg\n";
-      return builder->CreateNeg(visit(ctx->children[1]).as<Value *>());
-    }
-    // '(' expr ')'
-    if (ctx->children[0]->getText().at(0) == '(') {
-      outs() << "()\n";
-      return visit(ctx->children[1]);
-    }
-    // ( '*' | '/') expr expr
-    // ( '+' | '-') expr expr
-    outs() << ctx->children[0]->getText() << '\n';
-    Value *lhs = visit(ctx->children[1]).as<Value *>();
-    Value *rhs = visit(ctx->children[2]).as<Value *>();
-    switch (ctx->children[0]->getText().at(0)) {
-    case '*':
-      return builder->CreateMul(lhs, rhs);
-    case '/':
-      return builder->CreateSDiv(lhs, rhs);
-    case '+':
-      return builder->CreateAdd(lhs, rhs);
-    case '-':
-      return builder->CreateSub(lhs, rhs);
-    default:
-      return nullptr;
-    }
-  }
-
-  Value *registerVar(const std::string &name, Value *val) {
-    outs() << "registerVar: " << name << '\n';
-    vars.back()[name] = val;
     return val;
   }
 
-  Value *searchVar(const std::string &name) {
-    outs() << "searchVar: " << name << '\n';
-    for (auto it = vars.rbegin(); it != vars.rend(); ++it) {
-      if (auto find = it->find(name); find != it->end()) {
-        return find->second;
-      }
-    }
-    // Conflict resolving: node: (expr) <-> (ID)
-    Function *func = module->getFunction(name);
-    if (!func || func->arg_size() > 0) {
-      outs() << "[Error] Can't find variable: " << name << '\n';
-      return nullptr;
-    }
-    outs() << "Change to FuncCall: " << name << '\n';
-    return (Value *)builder->CreateCall(func);
+  Value *getVar(const std::string &name) {
+    outs() << "getVar: " << name << "\n";
+    
+    auto it = local_vars.find(name);
+    if (it != local_vars.end())
+      return it->second;
+    
+    auto git = global_vars.find(name);
+    if (git != global_vars.end())
+      return git->second;
+    
+    throw std::runtime_error("Unknow variable name");
   }
 };
 
+
 int main(int argc, const char *argv[]) {
   if (argc != 2 && argc != 3) {
-    outs() << "[ERROR] Need arguments: file with NodeLang and optional output "
+    outs() << "[ERROR] Need arguments: file with MiniGo and optional output "
               "file for LLVM IR\n";
     return 1;
   }
@@ -340,17 +220,16 @@ int main(int argc, const char *argv[]) {
   antlr4::ANTLRInputStream input(stream);
 
   // Create a lexer from the input
-  NodeLangLexer lexer(&input);
+  MiniGoLexer lexer(&input);
 
   // Create a token stream from the lexer
   antlr4::CommonTokenStream tokens(&lexer);
 
   // Create a parser from the token stream
-  NodeLangParser parser(&tokens);
+  MiniGoParser parser(&tokens);
 
   // Display the parse tree
-  // outs() << parser.program()->toStringTree() << '\n';
-  // return 0;
+  outs() << parser.program()->toStringTree() << '\n';
 
   LLVMContext context;
   Module *module = new Module("top", context);
