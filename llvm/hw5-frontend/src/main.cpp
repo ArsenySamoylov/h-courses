@@ -135,8 +135,74 @@ struct TreeLLVMWalker : public MiniGoVisitor {
 
   antlrcpp::Any visitExpr(MiniGoParser::ExprContext *ctx) override {
     outs() << "visitExpr\n";
-    return visitPrimary(ctx->primary());
+    return visitComparisonExpr(ctx->comparisonExpr());
   }
+
+  antlrcpp::Any visitComparisonExpr(MiniGoParser::ComparisonExprContext *ctx) override {
+    outs() << "visitComparisonExpr\n";
+
+    Value *lhs = visit(ctx->additiveExpr(0)).as<Value*>();
+
+    for (size_t i = 1; i < ctx->additiveExpr().size(); ++i) {
+      Value *rhs = visit(ctx->additiveExpr(i)).as<Value*>();
+
+      std::string op = ctx->children[2*i - 1]->getText();
+      if (op == "<") {
+        lhs = builder->CreateICmpSLT(lhs, rhs);
+      }
+      else if (op == ">") {
+        lhs = builder->CreateICmpSGT(lhs, rhs);
+      } else {
+        throw std::runtime_error("Unknow comparison operator");
+      }
+    }
+
+    return lhs;
+  }
+
+  antlrcpp::Any visitAdditiveExpr(MiniGoParser::AdditiveExprContext *ctx) override {
+    outs() << "visitAdditiveExpr\n";
+    Value *lhs = visit(ctx->multiplicativeExpr(0)).as<Value *>();
+
+    for (size_t i = 1; i < ctx->multiplicativeExpr().size(); ++i) {
+        Value *rhs =
+            visit(ctx->multiplicativeExpr(i)).as<llvm::Value *>();
+
+        std::string op = ctx->children[2 * i - 1]->getText();
+
+        if (op == "+") {
+            lhs = builder->CreateAdd(lhs, rhs);
+        } else if (op == "-") {
+            lhs = builder->CreateSub(lhs, rhs);
+        } else {
+            throw std::runtime_error("Unknow additive operator");
+        }
+    }
+
+    return lhs;
+  }
+
+  antlrcpp::Any visitMultiplicativeExpr(MiniGoParser::MultiplicativeExprContext *ctx) override {
+    outs() << "visitAdditiveExpr\n";
+    Value *lhs = visit(ctx->primary(0)).as<llvm::Value *>();
+
+    for (size_t i = 1; i < ctx->primary().size(); ++i) {
+        Value *rhs = visit(ctx->primary(i)).as<llvm::Value *>();
+
+        std::string op = ctx->children[2 * i - 1]->getText();
+
+        if (op == "*") {
+            lhs = builder->CreateMul(lhs, rhs);
+        } else if (op == "\\") {
+            lhs = builder->CreateSDiv(lhs, rhs);
+        } else {
+            throw std::runtime_error("Unknow multiplicative operator");
+        }
+    }
+
+    return lhs;
+}
+
 
   antlrcpp::Any visitPrimary(MiniGoParser::PrimaryContext *ctx) override  {
     outs  () << "visitPrimary\n";

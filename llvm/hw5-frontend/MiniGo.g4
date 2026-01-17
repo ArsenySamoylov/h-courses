@@ -9,7 +9,11 @@ topLevelDecl: constDecl;
 constDecl: 'const' ID '=' expr;
 
 /* ---------- Expressions ---------- */
-expr: primary;
+expr: comparisonExpr;
+
+comparisonExpr: additiveExpr ( (LT | GT) additiveExpr )*;
+additiveExpr: multiplicativeExpr ( (PLUS | MINUS) multiplicativeExpr )*;
+multiplicativeExpr: primary ( (STAR | DIV) primary )*;
 
 primary: literal | ID | '(' expr ')';
 
@@ -27,6 +31,16 @@ ID: [a-zA-Z_]+;
 INT: [0-9]+;
 
 HEX: '0x' [0-9a-fA-F]+;
+
+
+/* --- Operators --- */
+
+PLUS  : '+' ;
+MINUS : '-' ;
+STAR  : '*' ;
+DIV   : '/' ;
+LT    : '<' ;
+GT    : '>' ;
 
 /* ---------- Whitespace & comments ---------- */
 
