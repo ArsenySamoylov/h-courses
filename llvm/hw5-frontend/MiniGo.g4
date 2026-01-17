@@ -5,8 +5,19 @@ grammar MiniGo;
    ======================= */
 program: (topLevelDecl)* EOF;
 
-topLevelDecl: constDecl;
+topLevelDecl: constDecl | funcDecl;
 constDecl: 'const' ID '=' expr;
+
+funcDecl: 'func' ID '(' ')' block;
+block: '{' statement* '}';
+statement: block | varDecl | assignStmt | ifStmt | forStmt;
+ifStmt: 'if' expr block ('else' block)?;
+forStmt: 'for' block;
+varDecl: 'var' ID type ('=' expr)?;
+assignStmt: ID '=' expr;
+
+/* ---------- Types      ---------- */
+type: 'int' | 'bool';
 
 /* ---------- Expressions ---------- */
 expr: comparisonExpr;

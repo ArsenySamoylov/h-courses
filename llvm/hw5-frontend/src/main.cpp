@@ -30,10 +30,13 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   enum class Scope {
     Local,
     Global,
+    All,
   };
 
   std::map<std::string, Value*> local_vars;
   std::map<std::string, Value*> global_vars;
+  std::map<std::string, Function*> functions;
+
 
   Function *currFunc;
   LLVMContext *ctxLLVM;
@@ -133,6 +136,115 @@ struct TreeLLVMWalker : public MiniGoVisitor {
     return registerVar(name, visitExpr(ctx->expr()).as<Value*>(), Scope::Global);
   }
 
+  antlrcpp::Any visitFuncDecl(MiniGoParser::FuncDeclContext *ctx) override {
+    if (currFunc != nullptr) {
+      throw std::runtime_error("Function declaration inside function is not supported");
+    }
+    std::string name = ctx->ID()->getText();
+    if (functions.count(name)) {
+      throw std::runtime_error("Function redeclaration");
+    }
+
+    std::vector<Type *> funcParamTypes(1, voidType);
+
+    FunctionType *funcType = FunctionType::get(voidType, funcParamTypes, false);
+    Function *func = Function::Create(funcType, Function::ExternalLinkage, name, module);
+
+    // Register function
+    functions[name] = func;
+
+    // entry:
+    BasicBlock *entryBB = BasicBlock::Create(*ctxLLVM, "entry", func);
+    builder->SetInsertPoint(entryBB);
+    currFunc = func;
+
+    // Main body
+    local_vars.clear();
+    visitBlock(ctx->block());
+
+    if (!builder->GetInsertBlock()->getTerminator()){
+      builder->CreateRetVoid();
+    }
+    
+    local_vars.clear();
+    currFunc = nullptr;
+    return nullptr;
+  }
+
+  antlrcpp::Any visitBlock(MiniGoParser::BlockContext *ctx) override {
+    if (ctx->statement().size() != 0) {
+      for (auto it: ctx->statement())
+        visitStatement(it);
+    }
+    return nullptr;
+  }
+
+  antlrcpp::Any visitStatement(MiniGoParser::StatementContext *ctx) override {
+    return visit(ctx->children[0]);
+  }
+
+  antlrcpp::Any visitIfStmt(MiniGoParser::IfStmtContext *ctx) override {
+    auto *thenBB  = BasicBlock::Create(*ctxLLVM, "then", currFunc);
+    auto *elseBB  = BasicBlock::Create(*ctxLLVM, "else", currFunc);
+    auto *mergeBB = BasicBlock::Create(*ctxLLVM, "merge", currFunc);
+
+    auto *condition = visitExpr(ctx->expr()).as<Value*>();
+    builder->CreateCondBr(condition, thenBB, elseBB);
+    
+    // ThenBB
+    builder->SetInsertPoint(thenBB);
+    visitBlock(ctx->block(0));
+
+    if(!builder->GetInsertBlock()->getTerminator()) {
+      builder->CreateBr(mergeBB);
+    }
+
+    // ElseBB
+    builder->SetInsertPoint(elseBB);
+
+    if (ctx->block().size() > 1) {
+      visitBlock(ctx->block(1));
+    }
+
+    if(!builder->GetInsertBlock()->getTerminator()) {
+      builder->CreateBr(mergeBB);
+    }
+
+    // MergeBB
+    builder->SetInsertPoint(mergeBB);
+    return nullptr;
+  }
+
+  antlrcpp::Any visitForStmt(MiniGoParser::ForStmtContext *ctx) override {
+    auto *loopBB  = BasicBlock::Create(*ctxLLVM, "loop", currFunc);
+    auto *mergeBB = BasicBlock::Create(*ctxLLVM, "merge", currFunc);
+
+    builder->SetInsertPoint(loopBB);
+    visitBlock(ctx->block());
+    
+    if(!builder->GetInsertBlock()->getTerminator()) {
+      builder->CreateBr(mergeBB);
+    }
+
+    builder->SetInsertPoint(mergeBB);
+    return nullptr;
+  }
+
+  antlrcpp::Any visitVarDecl(MiniGoParser::VarDeclContext *ctx) override {
+    std::string name = ctx->ID()->getText();
+    return registerVar(name, visitExpr(ctx->expr()).as<Value*>(), Scope::Local);
+  }
+
+  antlrcpp::Any visitAssignStmt(MiniGoParser::AssignStmtContext *ctx) override {
+    std::string name = ctx->ID()->getText();
+    return setVar(name, visitExpr(ctx->expr()).as<Value*>());
+  }
+
+  antlrcpp::Any visitType(MiniGoParser::TypeContext *ctx) override {
+    // TODO - implement type system
+    return nullptr;
+  }
+
   antlrcpp::Any visitExpr(MiniGoParser::ExprContext *ctx) override {
     outs() << "visitExpr\n";
     return visitComparisonExpr(ctx->comparisonExpr());
@@ -201,8 +313,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
     }
 
     return lhs;
-}
-
+  }
 
   antlrcpp::Any visitPrimary(MiniGoParser::PrimaryContext *ctx) override  {
     outs  () << "visitPrimary\n";
@@ -239,8 +350,11 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   // Helper Functions
-  Value *registerVar(const std::string &name, Value *val, Scope scp ) {
+  Value *registerVar(const std::string &name, Value *val, Scope scp) {
     outs() << "registerVar: " << name << "\n";
+    if (getVar(name, scp) != nullptr)
+      throw std::runtime_error("Variable redeclaration");
+
     switch (scp) {
      case Scope::Local:
         local_vars[name] = val;
@@ -255,17 +369,35 @@ struct TreeLLVMWalker : public MiniGoVisitor {
     return val;
   }
 
-  Value *getVar(const std::string &name) {
+  Value *setVar(const std::string &name, Value *val) {
+    if (local_vars.count(name) != 0) {
+        local_vars[name] = val;
+        return val;
+    }
+
+    if (global_vars.count(name)) {
+        global_vars[name] = val;
+        return val;
+    }
+
+    throw std::runtime_error("Unknow variable name");
+  }
+
+  Value *getVar(const std::string &name, Scope scp = Scope::All) {
     outs() << "getVar: " << name << "\n";
     
-    auto it = local_vars.find(name);
-    if (it != local_vars.end())
-      return it->second;
-    
-    auto git = global_vars.find(name);
-    if (git != global_vars.end())
-      return git->second;
-    
+    if (scp == Scope::Local || scp == Scope::All) {
+      auto it = local_vars.find(name);
+      if (it != local_vars.end())
+        return it->second;
+    }
+
+    if (scp == Scope::Local || scp == Scope::All) {
+      auto it = global_vars.find(name);
+      if (it != global_vars.end())
+        return it->second;
+    }
+
     throw std::runtime_error("Unknow variable name");
   }
 };
