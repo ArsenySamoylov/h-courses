@@ -3,11 +3,14 @@ In ubuntu apt files (at least on my machine) there are conflicting versions for 
 To address this problem I had to manually install correct dev library version from Debian packages website.
 
 Here is what worked for me:
+
 First install dependency for dev library: https://packages.debian.org/trixie/libantlr4-runtime4.9 
+
 Then dev library: https://packages.debian.org/trixie/libantlr4-runtime-dev
+
 Generator version (from apt): ANTLR Parser Generator  Version 4.9.2
 
-Big thanks to @Vladislave0-0 and @aleksplast for pointing out for the problem.  
+Big thanks to [@Vladislave0-0](https://github.com/Vladislave0-0) and [@aleksplast](https://github.com/aleksplast) for pointing out for the problem.  
 
 ## Language
 This language is inspired by Golang and is intended to be a small, minimal subset of it. The goal is not full Go compatibility, but rather a clean and simple language suitable for experimenting with parsing, semantic analysis, and LLVM-based code generation. It supports basic control flow, expressions, variables, functions, and primitive types, while intentionally omitting more complex Go features. The language is designed to be easy to extend as new features are added over time.
