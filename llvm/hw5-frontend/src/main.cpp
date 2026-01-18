@@ -191,9 +191,9 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   antlrcpp::Any visitIfStmt(MiniGoParser::IfStmtContext *ctx) override {
-    auto *thenBB  = BasicBlock::Create(*ctxLLVM, "then", currFunc);
-    auto *elseBB  = BasicBlock::Create(*ctxLLVM, "else", currFunc);
-    auto *mergeBB = BasicBlock::Create(*ctxLLVM, "merge", currFunc);
+    auto *thenBB  = BasicBlock::Create(*ctxLLVM, "if_then", currFunc);
+    auto *elseBB  = BasicBlock::Create(*ctxLLVM, "if_else", currFunc);
+    auto *mergeBB = BasicBlock::Create(*ctxLLVM, "if_merge", currFunc);
 
     auto *condition = visitExpr(ctx->expr()).as<Value*>();
     builder->CreateCondBr(condition, thenBB, elseBB);
@@ -223,9 +223,9 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   antlrcpp::Any visitForStmt(MiniGoParser::ForStmtContext *ctx) override {
-    auto *conditionBB = BasicBlock::Create(*ctxLLVM, "condition", currFunc);
-    auto *loopBB  = BasicBlock::Create(*ctxLLVM, "loop", currFunc);
-    auto *mergeBB = BasicBlock::Create(*ctxLLVM, "merge", currFunc);
+    auto *conditionBB = BasicBlock::Create(*ctxLLVM, "for_condition", currFunc);
+    auto *loopBB  = BasicBlock::Create(*ctxLLVM, "for_loop", currFunc);
+    auto *mergeBB = BasicBlock::Create(*ctxLLVM, "for_merge", currFunc);
 
     // Condition
     if(!builder->GetInsertBlock()->getTerminator()) {
@@ -301,11 +301,13 @@ struct TreeLLVMWalker : public MiniGoVisitor {
       Value *rhs = visit(ctx->additiveExpr(i)).as<Value*>();
 
       std::string op = ctx->children[2*i - 1]->getText();
-      if (op == "<") {
+             if (op == "<") {
         lhs = builder->CreateICmpSLT(lhs, rhs);
-      }
-      else if (op == ">") {
+      } else if (op == ">") {
         lhs = builder->CreateICmpSGT(lhs, rhs);
+      } else if (op == "==") {
+        outs() << "EWQQQQQQQQQQQQ\n";
+        lhs = builder->CreateICmpEQ(lhs, rhs);
       } else {
         throw std::runtime_error("Unknow comparison operator");
       }

@@ -1,5 +1,8 @@
 grammar MiniGo;
 
+// TODO: add unary expression
+//       This is must have, since now it can't even hold negative integer literals =(.
+
 /* =======================
    Parser rules
    ======================= */
@@ -24,7 +27,7 @@ type: 'int' | 'bool';
 /* ---------- Expressions ---------- */
 expr: comparisonExpr;
 
-comparisonExpr: additiveExpr ( (LT | GT) additiveExpr )*;
+comparisonExpr: additiveExpr ( (LT | GT | EQ) additiveExpr )*;
 additiveExpr: multiplicativeExpr ( (PLUS | MINUS) multiplicativeExpr )*;
 multiplicativeExpr: primary ( (STAR | DIV | MOD) primary )*;
 
@@ -58,6 +61,7 @@ MOD   : '%' ;
 
 LT    : '<' ;
 GT    : '>' ;
+EQ    : '==';
 
 /* ---------- Whitespace & comments ---------- */
 
