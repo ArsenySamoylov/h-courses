@@ -314,12 +314,12 @@ struct TreeLLVMWalker : public MiniGoVisitor {
 
         if (op == "*") {
           lhs = builder->CreateMul(lhs, rhs);
-        } else if (op == "\\") {
+        } else if (op == "/") {
           lhs = builder->CreateSDiv(lhs, rhs);
         } else if (op == "%") {
           lhs = builder->CreateSRem(lhs, rhs);
         } else {
-            throw std::runtime_error("Unknow multiplicative operator");
+            throw std::runtime_error("Unknow multiplicative operator:" + op);
         }
     }
 
