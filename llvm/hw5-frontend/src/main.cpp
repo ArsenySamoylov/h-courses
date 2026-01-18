@@ -27,14 +27,8 @@
 using namespace llvm;
 
 struct TreeLLVMWalker : public MiniGoVisitor {
-  enum class Scope {
-    Local,
-    Global,
-    All,
-  };
-
-  std::map<std::string, Value*> local_vars;
-  std::map<std::string, Value*> global_vars;
+  std::map<std::string, AllocaInst*> local_vars;
+  std::map<std::string, Value*> global_consts; 
 
   Function *currFunc;
   LLVMContext *ctxLLVM;
@@ -134,7 +128,13 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   antlrcpp::Any visitConstDecl(MiniGoParser::ConstDeclContext *ctx) override {
     std::string name = ctx->ID()->getText();
     outs() << "visitConstDecl: "<< name << "\n";
-    return registerVar(name, visitExpr(ctx->expr()).as<Value*>(), Scope::Global);
+
+    if (global_consts.count(name) != 0)
+      throw std::runtime_error("Const redeclaration: " + name);
+    
+    Value *val = visitExpr(ctx->expr()).as<Value*>();
+    global_consts[name] = val;
+    return val;
   }
 
   antlrcpp::Any visitFuncDecl(MiniGoParser::FuncDeclContext *ctx) override {
@@ -243,12 +243,33 @@ struct TreeLLVMWalker : public MiniGoVisitor {
 
   antlrcpp::Any visitVarDecl(MiniGoParser::VarDeclContext *ctx) override {
     std::string name = ctx->ID()->getText();
-    return registerVar(name, visitExpr(ctx->expr()).as<Value*>(), Scope::Local);
+    
+    if (local_vars.count(name) != 0) {
+      throw std::runtime_error("Variable redeclaration: " + name);
+    }
+
+    AllocaInst *var = builder->CreateAlloca(int32Type, nullptr, name);
+
+    Value *init;
+    if (ctx->expr()) {
+      init = visitExpr(ctx->expr()).as<Value*>();
+    } else {
+      init = builder->getInt32(0); 
+    }
+
+    builder->CreateStore(init, var);
+    local_vars[name] = var;
+    return var;
   }
 
   antlrcpp::Any visitAssignStmt(MiniGoParser::AssignStmtContext *ctx) override {
     std::string name = ctx->ID()->getText();
-    return setVar(name, visitExpr(ctx->expr()).as<Value*>());
+    if (local_vars.count(name) == 0) {
+      throw std::runtime_error("Undefined variable: " + name);
+    }
+
+    Value *value = visitExpr(ctx->expr()).as<Value*>();
+    return builder->CreateStore(value, local_vars[name]);
   }
 
   antlrcpp::Any visitExprStmt(MiniGoParser::ExprStmtContext *ctx) override {
@@ -354,12 +375,20 @@ struct TreeLLVMWalker : public MiniGoVisitor {
         }
       
         return static_cast<Value*>(builder->CreateCall(callee, args));
-      
-      } else {
-        // Variable
-        outs() << "visitPrimary:" << name << "\n";
-        return getVar(name);
       }
+      // Const
+      if (global_consts.count(name) != 0) {
+        return global_consts[name];
+      }
+      
+      // Variable
+      outs() << "visitPrimary:" << name << "\n";
+      if (local_vars.count(name) != 0) {
+        AllocaInst *var = local_vars[name];
+        return static_cast<Value*>(builder->CreateLoad(var->getAllocatedType(), var));
+      }
+
+      throw std::runtime_error("Undefined ID: " + name);
     }
 
     if (ctx->expr()) {
@@ -400,66 +429,6 @@ struct TreeLLVMWalker : public MiniGoVisitor {
     }
 
     throw std::runtime_error("Unknow Literal Type");
-  }
-
-  // Helper Functions
-  Value *registerVar(const std::string &name, Value *val, Scope scp) {
-    outs() << "registerVar: " << name << "\n";
-    if (isVar(name, scp))
-      throw std::runtime_error("Variable redeclaration");
-
-    switch (scp) {
-     case Scope::Local:
-        local_vars[name] = val;
-        break;
-      case Scope::Global:
-        global_vars[name] = val;
-        break;
-      default:
-        throw std::runtime_error("Unknow scope type");
-    }
-
-    return val;
-  }
-
-  Value *setVar(const std::string &name, Value *val) {
-    if (local_vars.count(name) != 0) {
-        local_vars[name] = val;
-        return val;
-    }
-
-    if (global_vars.count(name)) {
-        global_vars[name] = val;
-        return val;
-    }
-
-    throw std::runtime_error("Unknow variable name: '" + name + "'");
-  }
-
-  bool isVar(const std::string &name, Scope scp) {
-    try {
-      getVar(name, scp);
-      return true;
-    } catch (std::runtime_error& e) {
-      return false;
-    }
-  }
-  Value *getVar(const std::string &name, Scope scp = Scope::All) {
-    outs() << "getVar: " << name << "\n";
-    
-    if (scp == Scope::Local || scp == Scope::All) {
-      auto it = local_vars.find(name);
-      if (it != local_vars.end())
-        return it->second;
-    }
-
-    if (scp == Scope::Global || scp == Scope::All) {
-      auto it = global_vars.find(name);
-      if (it != global_vars.end())
-        return it->second;
-    }
-
-    throw std::runtime_error("Unknow variable name: '" + name + "'");
   }
 };
 

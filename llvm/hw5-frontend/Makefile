@@ -8,5 +8,6 @@ antlr: MiniGo.g4
 	antlr4 -Dlanguage=Cpp MiniGo.g4 -o src/gen -visitor -no-listener
 
 all: antlr
+	rm -rf a.out
 	clang++ -g src/main.cpp sim.c src/gen/*.cpp ${ANTLR_FLAGS} ${APP_FLAGS} ${LLVM_FLAGS} 
 

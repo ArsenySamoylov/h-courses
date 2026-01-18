@@ -6,6 +6,7 @@ grammar MiniGo;
 program: (topLevelDecl)* EOF;
 
 topLevelDecl: constDecl | funcDecl;
+// TODO: for now const can be only global
 constDecl: 'const' ID '=' expr;
 
 funcDecl: 'func' ID '(' ')' block;
