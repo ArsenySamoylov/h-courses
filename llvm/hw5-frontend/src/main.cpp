@@ -1,4 +1,4 @@
-#include "../sim.h"
+#include "sim.h"
 
 #include "gen/MiniGoLexer.h"
 #include "gen/MiniGoParser.h"

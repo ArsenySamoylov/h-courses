@@ -9,5 +9,5 @@ antlr: MiniGo.g4
 
 all: antlr
 	rm -rf a.out
-	clang++ -g src/main.cpp sim.c src/gen/*.cpp ${ANTLR_FLAGS} ${APP_FLAGS} ${LLVM_FLAGS} 
+	clang++ -g src/main.cpp src/sim.c src/gen/*.cpp ${ANTLR_FLAGS} ${APP_FLAGS} ${LLVM_FLAGS} 
 
