@@ -35,8 +35,6 @@ struct TreeLLVMWalker : public MiniGoVisitor {
 
   std::map<std::string, Value*> local_vars;
   std::map<std::string, Value*> global_vars;
-  std::map<std::string, Function*> functions;
-
 
   Function *currFunc;
   LLVMContext *ctxLLVM;
@@ -57,15 +55,15 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   void regGraphicFuncs() {
-    // declare i32 @PUT_PIXEL(i32, i32, i32)
+    // declare i32 @simPutPixel(i32, i32, i32)
     ArrayRef<Type *> simPutPixelParamTypes = {int32Type, int32Type, int32Type};
     FunctionType *simPutPixelType =
         FunctionType::get(int32Type, simPutPixelParamTypes, false);
-    module->getOrInsertFunction("PUT_PIXEL", simPutPixelType);
+    module->getOrInsertFunction("simPutPixel", simPutPixelType);
 
-    // declare i32 @FLUSH()
+    // declare i32 @simFlush()
     FunctionType *simFlushType = FunctionType::get(int32Type, false);
-    module->getOrInsertFunction("FLUSH", simFlushType);
+    module->getOrInsertFunction("simFlush", simFlushType);
   }
 
   void regGraphicFuncsIntr() {
@@ -145,7 +143,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
       throw std::runtime_error("Function: '" + name + "' can't be declared inside a function");
     }
 
-    if (functions.count(name)) {
+    if (module->getFunction(name) != nullptr) {
       throw std::runtime_error("Function: '" + name + "' redeclaration");
     }
 
@@ -154,9 +152,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
 
     FunctionType *funcType = FunctionType::get(voidType, funcParamTypes, false);
     Function *func = Function::Create(funcType, Function::ExternalLinkage, name, module);
-
-    // Register function
-    functions[name] = func;
+    outs() << "FuncDecl: " << name << "\n";
 
     // entry:
     BasicBlock *entryBB = BasicBlock::Create(*ctxLLVM, "entry", func);
@@ -225,15 +221,20 @@ struct TreeLLVMWalker : public MiniGoVisitor {
     auto *loopBB  = BasicBlock::Create(*ctxLLVM, "loop", currFunc);
     auto *mergeBB = BasicBlock::Create(*ctxLLVM, "merge", currFunc);
 
+    // Condition
+    if(!builder->GetInsertBlock()->getTerminator()) {
+      builder->CreateBr(conditionBB);
+    }
+
     builder->SetInsertPoint(conditionBB);
     auto *condition = visitExpr(ctx->expr()).as<Value*>();
     builder->CreateCondBr(condition, loopBB, mergeBB);
 
+    // Loop
     builder->SetInsertPoint(loopBB);
     visitBlock(ctx->block());
-    
     if(!builder->GetInsertBlock()->getTerminator()) {
-      builder->CreateBr(mergeBB);
+      builder->CreateBr(conditionBB);
     }
 
     builder->SetInsertPoint(mergeBB);
@@ -342,12 +343,11 @@ struct TreeLLVMWalker : public MiniGoVisitor {
       
       if (ctx->argList()) {
         // Function Call
-        auto it = functions.find(name);
-        if (it == functions.end()) {
-          throw std::runtime_error("Unknown function call");
+        Function * callee = module->getFunction(name);
+        if (callee == nullptr) {
+          throw std::runtime_error("Unknown function call: " + name);
         }
 
-        Function *callee = it->second;
         std::vector<Value*> args = visitArgList(ctx->argList()).as<std::vector<Value*>>();
         if (callee->arg_size() != args.size()) {
             throw std::runtime_error("Argument count mismatch in call to " + name);
@@ -488,7 +488,7 @@ int main(int argc, const char *argv[]) {
   MiniGoParser parser(&tokens);
 
   // Display the parse tree
-  outs() << parser.program()->toStringTree() << '\n';
+  // outs() << parser.program()->toStringTree() << '\n';
 
   LLVMContext context;
   Module *module = new Module("top", context);
@@ -517,10 +517,10 @@ int main(int argc, const char *argv[]) {
 
   ExecutionEngine *ee = EngineBuilder(std::unique_ptr<Module>(module)).create();
   ee->InstallLazyFunctionCreator([](const std::string &fnName) -> void * {
-    if (fnName == "PUT_PIXEL") {
+    if (fnName == "simPutPixel") {
       return reinterpret_cast<void *>(simPutPixel);
       }
-      if (fnName == "FLUSH") {
+      if (fnName == "simFlush") {
         return reinterpret_cast<void *>(simFlush);
       }
       outs() << "[ExecutionEngine] Can't find function " << fnName
