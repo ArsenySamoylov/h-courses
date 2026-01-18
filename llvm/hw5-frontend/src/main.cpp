@@ -480,9 +480,9 @@ int main(int argc, const char *argv[]) {
   bool verif = verifyModule(*module, &outs());
   outs() << "[VERIFICATION] " << (verif ? "FAIL\n\n" : "OK\n\n");
 
-  Function *appFunc = module->getFunction("app");
-  if (appFunc == nullptr) {
-    outs() << "Can't find app function\n";
+  Function *mainFunc = module->getFunction("main");
+  if (mainFunc == nullptr) {
+    outs() << "Can't find 'main' function\n";
     return -1;
   }
 
@@ -512,7 +512,7 @@ int main(int argc, const char *argv[]) {
     simInit();
 
     ArrayRef<GenericValue> noargs;
-    GenericValue v = ee->runFunction(appFunc, noargs);
+    GenericValue v = ee->runFunction(mainFunc, noargs);
     outs() << "[EE] Result: " << v.IntVal << "\n";
 
     simExit();

@@ -1,7 +1,7 @@
 const BLUE = 0xFF0000FF
 const WHITE = 0xFFFFFFFF
 
-func app() {
+func main() {
 	for true {
 		simPutPixel(0, 0, BLUE)
 		simPutPixel(1, 0, WHITE)

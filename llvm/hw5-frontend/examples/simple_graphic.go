@@ -1,6 +1,6 @@
 const BLUE = 0xFF0000FF
 
-func app() {
+func main() {
 	var x int = 0
 	var y int = 0
 	for true {

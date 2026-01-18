@@ -6,7 +6,7 @@ const MINUS_ONE = 0xFFFFFFFF
 const WINDOW_WIDTH = 512
 const WINDOW_HEIGHT = 256
 
-func app() {
+func main() {
 	var x int = simRand() % WINDOW_WIDTH
 	var y int = simRand() % WINDOW_HEIGHT
 	var color int = BLUE

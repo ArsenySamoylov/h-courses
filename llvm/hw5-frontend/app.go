@@ -12,7 +12,7 @@ const FIELD_HEIGHT = WINDOW_HEIGHT / CELL_SIZE
 const BLUE = 0xFF0000FF
 const WHITE = 0xFFFFFFFF
 
-func app() {
+func main() {
 	var y int
 	var x int
 	var dx int
