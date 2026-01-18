@@ -1,0 +1,9 @@
+func main() {
+	var x int = 10
+
+	if x > 5 {
+		x = x + 1
+	} else {
+		x = x - 1
+	}
+}
