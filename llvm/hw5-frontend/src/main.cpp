@@ -58,6 +58,10 @@ struct TreeLLVMWalker : public MiniGoVisitor {
     // declare i32 @simFlush()
     FunctionType *simFlushType = FunctionType::get(int32Type, false);
     module->getOrInsertFunction("simFlush", simFlushType);
+
+    // declare i32 @simRand()
+    FunctionType *simRandType = FunctionType::get(int32Type, false);
+    module->getOrInsertFunction("simRand", simRandType);
   }
 
   void regGraphicFuncsIntr() {
@@ -99,6 +103,8 @@ struct TreeLLVMWalker : public MiniGoVisitor {
     builder->CreateCall(simFlushIntr);
     // ret i32 0
     builder->CreateRet(builder->getInt32(0));
+
+    // TODO (simRand)
   }
 
   antlrcpp::Any visitProgram(MiniGoParser::ProgramContext *ctx) override {
@@ -486,11 +492,14 @@ int main(int argc, const char *argv[]) {
 
   ExecutionEngine *ee = EngineBuilder(std::unique_ptr<Module>(module)).create();
   ee->InstallLazyFunctionCreator([](const std::string &fnName) -> void * {
-    if (fnName == "simPutPixel") {
-      return reinterpret_cast<void *>(simPutPixel);
+      if (fnName == "simPutPixel") {
+        return reinterpret_cast<void *>(simPutPixel);
       }
       if (fnName == "simFlush") {
         return reinterpret_cast<void *>(simFlush);
+      }
+      if (fnName == "simRand") {
+        return reinterpret_cast<void *>(simRand);
       }
       outs() << "[ExecutionEngine] Can't find function " << fnName
             << ". Catch the Segmentation fault:)\n";
