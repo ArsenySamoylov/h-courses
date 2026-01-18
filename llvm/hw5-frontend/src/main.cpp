@@ -50,7 +50,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
 
   TreeLLVMWalker(LLVMContext *ctxLLVM, IRBuilder<> *builder, Module *module,
                  bool interpretMode)
-      : ctxLLVM(ctxLLVM), builder(builder), module(module),
+      : currFunc(nullptr), ctxLLVM(ctxLLVM), builder(builder), module(module),
         interpretMode(interpretMode) {
     int32Type = Type::getInt32Ty(*ctxLLVM);
     voidType = Type::getVoidTy(*ctxLLVM);
@@ -127,6 +127,9 @@ struct TreeLLVMWalker : public MiniGoVisitor {
     outs() << "visitTopLevelDecl\n";
     if (ctx->constDecl())
       return visitConstDecl(ctx->constDecl());
+    if (ctx->funcDecl())
+      return visitFuncDecl(ctx->funcDecl());
+
     return nullptr;
   }
 
@@ -137,15 +140,17 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   antlrcpp::Any visitFuncDecl(MiniGoParser::FuncDeclContext *ctx) override {
-    if (currFunc != nullptr) {
-      throw std::runtime_error("Function declaration inside function is not supported");
-    }
     std::string name = ctx->ID()->getText();
-    if (functions.count(name)) {
-      throw std::runtime_error("Function redeclaration");
+    if (currFunc != nullptr) {
+      throw std::runtime_error("Function: '" + name + "' can't be declared inside a function");
     }
 
-    std::vector<Type *> funcParamTypes(1, voidType);
+    if (functions.count(name)) {
+      throw std::runtime_error("Function: '" + name + "' redeclaration");
+    }
+
+    // TODO (no arguments for now)
+    std::vector<Type *> funcParamTypes(0);
 
     FunctionType *funcType = FunctionType::get(voidType, funcParamTypes, false);
     Function *func = Function::Create(funcType, Function::ExternalLinkage, name, module);
@@ -348,7 +353,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
             throw std::runtime_error("Argument count mismatch in call to " + name);
         }
       
-        return builder->CreateCall(callee, args);
+        return static_cast<Value*>(builder->CreateCall(callee, args));
       
       } else {
         // Variable
