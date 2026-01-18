@@ -305,10 +305,10 @@ struct TreeLLVMWalker : public MiniGoVisitor {
 
   antlrcpp::Any visitMultiplicativeExpr(MiniGoParser::MultiplicativeExprContext *ctx) override {
     outs() << "visitMultiplicativeExpr\n";
-    Value *lhs = visit(ctx->primary(0)).as<llvm::Value *>();
+    Value *lhs = visitPrimary(ctx->primary(0)).as<Value*>();
 
     for (size_t i = 1; i < ctx->primary().size(); ++i) {
-        Value *rhs = visit(ctx->primary(i)).as<llvm::Value *>();
+        Value *rhs = visit(ctx->primary(i)).as<Value*>();
 
         std::string op = ctx->children[2 * i - 1]->getText();
 
@@ -377,17 +377,23 @@ struct TreeLLVMWalker : public MiniGoVisitor {
 
   antlrcpp::Any visitLiteral(MiniGoParser::LiteralContext *ctx) override  {
     if (ctx->INT())
-      return (Value*)builder->getInt32(std::stoi(ctx->INT()->getText()));
+      return static_cast<Value*>(builder->getInt32(std::stoi(ctx->INT()->getText())));
+    
+    if (ctx->HEX()) {
+      std::string text = ctx->HEX()->getText();
+      text = text.substr(2); // remove 0x suffix
+      // TODO: change when int will be int64
+      return static_cast<Value*>(builder->getInt32(std::stoul(text, nullptr, 16)));
+    }
+    
     if (ctx->BOOL()) {
       if(ctx->BOOL()->getText() == "true")
-        return (Value*)builder->getInt1(builder->getTrue());
+        return static_cast<Value*>(builder->getInt1(builder->getTrue()));
       else
-        return (Value*)builder->getInt1(builder->getFalse());
+        return static_cast<Value*>(builder->getInt1(builder->getFalse()));
 
     }
-    if (ctx->HEX()) {
-      abort();
-    }
+
     throw std::runtime_error("Unknow Literal Type");
   }
 
