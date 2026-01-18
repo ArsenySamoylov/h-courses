@@ -108,7 +108,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   antlrcpp::Any visitProgram(MiniGoParser::ProgramContext *ctx) override {
-    outs() << "visitProgram\n";
+    // outs() << "visitProgram\n";
     if (interpretMode) {
       regGraphicFuncs();
     } else {
@@ -122,7 +122,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   antlrcpp::Any visitTopLevelDecl(MiniGoParser::TopLevelDeclContext *ctx) override {
-    outs() << "visitTopLevelDecl\n";
+    // outs() << "visitTopLevelDecl\n";
     if (ctx->constDecl())
       return visitConstDecl(ctx->constDecl());
     if (ctx->funcDecl())
@@ -133,7 +133,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
 
   antlrcpp::Any visitConstDecl(MiniGoParser::ConstDeclContext *ctx) override {
     std::string name = ctx->ID()->getText();
-    outs() << "visitConstDecl: "<< name << "\n";
+    // outs() << "visitConstDecl: "<< name << "\n";
 
     if (global_consts.count(name) != 0)
       throw std::runtime_error("Const redeclaration: " + name);
@@ -158,7 +158,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
 
     FunctionType *funcType = FunctionType::get(voidType, funcParamTypes, false);
     Function *func = Function::Create(funcType, Function::ExternalLinkage, name, module);
-    outs() << "FuncDecl: " << name << "\n";
+    // outs() << "FuncDecl: " << name << "\n";
 
     // entry:
     BasicBlock *entryBB = BasicBlock::Create(*ctxLLVM, "entry", func);
@@ -288,12 +288,12 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   antlrcpp::Any visitExpr(MiniGoParser::ExprContext *ctx) override {
-    outs() << "visitExpr\n";
+    // outs() << "visitExpr\n";
     return visitComparisonExpr(ctx->comparisonExpr());
   }
 
   antlrcpp::Any visitComparisonExpr(MiniGoParser::ComparisonExprContext *ctx) override {
-    outs() << "visitComparisonExpr\n";
+    // outs() << "visitComparisonExpr\n";
 
     Value *lhs = visit(ctx->additiveExpr(0)).as<Value*>();
 
@@ -306,7 +306,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
       } else if (op == ">") {
         lhs = builder->CreateICmpSGT(lhs, rhs);
       } else if (op == "==") {
-        outs() << "EWQQQQQQQQQQQQ\n";
+        // outs() << "EWQQQQQQQQQQQQ\n";
         lhs = builder->CreateICmpEQ(lhs, rhs);
       } else {
         throw std::runtime_error("Unknow comparison operator");
@@ -317,7 +317,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   antlrcpp::Any visitAdditiveExpr(MiniGoParser::AdditiveExprContext *ctx) override {
-    outs() << "visitAdditiveExpr\n";
+    // outs() << "visitAdditiveExpr\n";
     Value *lhs = visit(ctx->multiplicativeExpr(0)).as<Value *>();
 
     for (size_t i = 1; i < ctx->multiplicativeExpr().size(); ++i) {
@@ -339,7 +339,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   antlrcpp::Any visitMultiplicativeExpr(MiniGoParser::MultiplicativeExprContext *ctx) override {
-    outs() << "visitMultiplicativeExpr\n";
+    // outs() << "visitMultiplicativeExpr\n";
     Value *lhs = visitPrimary(ctx->primary(0)).as<Value*>();
 
     for (size_t i = 1; i < ctx->primary().size(); ++i) {
@@ -362,9 +362,9 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   antlrcpp::Any visitPrimary(MiniGoParser::PrimaryContext *ctx) override  {
-    outs  () << "visitPrimary\n";
+    // outs  () << "visitPrimary\n";
     if (ctx->literal()){
-      outs() << "visitPrimary:" << ctx->literal()->getText() << "\n";
+      // outs() << "visitPrimary:" << ctx->literal()->getText() << "\n";
       return visitLiteral(ctx->literal());
     }
     if (ctx->ID()) {
@@ -390,7 +390,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
       }
       
       // Variable
-      outs() << "visitPrimary:" << name << "\n";
+      // outs() << "visitPrimary:" << name << "\n";
       if (local_vars.count(name) != 0) {
         AllocaInst *var = local_vars[name];
         return static_cast<Value*>(builder->CreateLoad(var->getAllocatedType(), var));
@@ -503,8 +503,7 @@ int main(int argc, const char *argv[]) {
       if (fnName == "simRand") {
         return reinterpret_cast<void *>(simRand);
       }
-      outs() << "[ExecutionEngine] Can't find function " << fnName
-            << ". Catch the Segmentation fault:)\n";
+      outs() << "[ExecutionEngine] Can't find function " << fnName << ". Catch the Segmentation fault:)\n";
       return nullptr;
     });
     ee->finalizeObject();
