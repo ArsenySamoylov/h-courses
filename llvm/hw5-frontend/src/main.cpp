@@ -304,7 +304,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   antlrcpp::Any visitMultiplicativeExpr(MiniGoParser::MultiplicativeExprContext *ctx) override {
-    outs() << "visitAdditiveExpr\n";
+    outs() << "visitMultiplicativeExpr\n";
     Value *lhs = visit(ctx->primary(0)).as<llvm::Value *>();
 
     for (size_t i = 1; i < ctx->primary().size(); ++i) {
@@ -394,7 +394,7 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   // Helper Functions
   Value *registerVar(const std::string &name, Value *val, Scope scp) {
     outs() << "registerVar: " << name << "\n";
-    if (getVar(name, scp) != nullptr)
+    if (isVar(name, scp))
       throw std::runtime_error("Variable redeclaration");
 
     switch (scp) {
@@ -422,9 +422,17 @@ struct TreeLLVMWalker : public MiniGoVisitor {
         return val;
     }
 
-    throw std::runtime_error("Unknow variable name");
+    throw std::runtime_error("Unknow variable name: '" + name + "'");
   }
 
+  bool isVar(const std::string &name, Scope scp) {
+    try {
+      getVar(name, scp);
+      return true;
+    } catch (std::runtime_error& e) {
+      return false;
+    }
+  }
   Value *getVar(const std::string &name, Scope scp = Scope::All) {
     outs() << "getVar: " << name << "\n";
     
@@ -434,13 +442,13 @@ struct TreeLLVMWalker : public MiniGoVisitor {
         return it->second;
     }
 
-    if (scp == Scope::Local || scp == Scope::All) {
+    if (scp == Scope::Global || scp == Scope::All) {
       auto it = global_vars.find(name);
       if (it != global_vars.end())
         return it->second;
     }
 
-    throw std::runtime_error("Unknow variable name");
+    throw std::runtime_error("Unknow variable name: '" + name + "'");
   }
 };
 
