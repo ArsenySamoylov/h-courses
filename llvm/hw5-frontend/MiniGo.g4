@@ -10,11 +10,12 @@ constDecl: 'const' ID '=' expr;
 
 funcDecl: 'func' ID '(' ')' block;
 block: '{' statement* '}';
-statement: block | varDecl | assignStmt | ifStmt | forStmt;
+statement: block | varDecl | assignStmt | ifStmt | forStmt | exprStmt;
 ifStmt: 'if' expr block ('else' block)?;
-forStmt: 'for' block;
+forStmt: 'for' expr block;
 varDecl: 'var' ID type ('=' expr)?;
 assignStmt: ID '=' expr;
+exprStmt: expr;
 
 /* ---------- Types      ---------- */
 type: 'int' | 'bool';
@@ -24,10 +25,11 @@ expr: comparisonExpr;
 
 comparisonExpr: additiveExpr ( (LT | GT) additiveExpr )*;
 additiveExpr: multiplicativeExpr ( (PLUS | MINUS) multiplicativeExpr )*;
-multiplicativeExpr: primary ( (STAR | DIV) primary )*;
+multiplicativeExpr: primary ( (STAR | DIV | MOD) primary )*;
 
-primary: literal | ID | '(' expr ')';
+primary: literal | ID argList? | '(' expr ')';
 
+argList: '(' (expr (',' expr)*)? ')';
 
 /* ---------- Literals ---------- */
 
@@ -48,8 +50,11 @@ HEX: '0x' [0-9a-fA-F]+;
 
 PLUS  : '+' ;
 MINUS : '-' ;
+
 STAR  : '*' ;
 DIV   : '/' ;
+MOD   : '%' ;
+
 LT    : '<' ;
 GT    : '>' ;
 

@@ -216,8 +216,13 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   }
 
   antlrcpp::Any visitForStmt(MiniGoParser::ForStmtContext *ctx) override {
+    auto *conditionBB = BasicBlock::Create(*ctxLLVM, "condition", currFunc);
     auto *loopBB  = BasicBlock::Create(*ctxLLVM, "loop", currFunc);
     auto *mergeBB = BasicBlock::Create(*ctxLLVM, "merge", currFunc);
+
+    builder->SetInsertPoint(conditionBB);
+    auto *condition = visitExpr(ctx->expr()).as<Value*>();
+    builder->CreateCondBr(condition, loopBB, mergeBB);
 
     builder->SetInsertPoint(loopBB);
     visitBlock(ctx->block());
@@ -238,6 +243,10 @@ struct TreeLLVMWalker : public MiniGoVisitor {
   antlrcpp::Any visitAssignStmt(MiniGoParser::AssignStmtContext *ctx) override {
     std::string name = ctx->ID()->getText();
     return setVar(name, visitExpr(ctx->expr()).as<Value*>());
+  }
+
+  antlrcpp::Any visitExprStmt(MiniGoParser::ExprStmtContext *ctx) override {
+    return visitExpr(ctx->expr());
   }
 
   antlrcpp::Any visitType(MiniGoParser::TypeContext *ctx) override {
@@ -304,9 +313,11 @@ struct TreeLLVMWalker : public MiniGoVisitor {
         std::string op = ctx->children[2 * i - 1]->getText();
 
         if (op == "*") {
-            lhs = builder->CreateMul(lhs, rhs);
+          lhs = builder->CreateMul(lhs, rhs);
         } else if (op == "\\") {
-            lhs = builder->CreateSDiv(lhs, rhs);
+          lhs = builder->CreateSDiv(lhs, rhs);
+        } else if (op == "%") {
+          lhs = builder->CreateSRem(lhs, rhs);
         } else {
             throw std::runtime_error("Unknow multiplicative operator");
         }
@@ -323,14 +334,45 @@ struct TreeLLVMWalker : public MiniGoVisitor {
     }
     if (ctx->ID()) {
       auto name = ctx->ID()->getText();
-      outs() << "visitPrimary:" << name << "\n";
-      return getVar(name);
+      
+      if (ctx->argList()) {
+        // Function Call
+        auto it = functions.find(name);
+        if (it == functions.end()) {
+          throw std::runtime_error("Unknown function call");
+        }
+
+        Function *callee = it->second;
+        std::vector<Value*> args = visitArgList(ctx->argList()).as<std::vector<Value*>>();
+        if (callee->arg_size() != args.size()) {
+            throw std::runtime_error("Argument count mismatch in call to " + name);
+        }
+      
+        return builder->CreateCall(callee, args);
+      
+      } else {
+        // Variable
+        outs() << "visitPrimary:" << name << "\n";
+        return getVar(name);
+      }
     }
+
     if (ctx->expr()) {
       return visitExpr(ctx->expr());
     }
 
     throw std::runtime_error("Empty primary expression");
+  }
+
+  antlrcpp::Any visitArgList(MiniGoParser::ArgListContext *ctx) override {
+      std::vector<Value*> args;
+
+      for (auto *exprCtx : ctx->expr()) {
+        Value *arg = visitExpr(exprCtx).as<Value*>();
+        args.push_back(arg);
+      }
+
+      return args; 
   }
 
   antlrcpp::Any visitLiteral(MiniGoParser::LiteralContext *ctx) override  {
