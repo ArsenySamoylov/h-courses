@@ -4,36 +4,33 @@ use vec3::Vec3;
 mod ray;
 use ray::Ray;
 
+mod hit_record;
+use hit_record::HittableList;
+use hit_record::Hittable;
+
+mod sphere;
+use sphere::Sphere;
+
 fn write_color(v: Vec3) {
     let v = 255.999 * v;
     println!("{} {} {}", v.x as u32, v.y as u32, v.z as u32)
 }
 
-fn ray_color(r: Ray) -> Vec3 {
-    let t = hit_sphere(Vec3::new(0.0, 0.0, -1.0), 0.5, r);
-    if t > 0.0{
-        let n = (r.at(t) - Vec3::new(0.0, 0.0, -1.0)).unit();
-        return 0.5 * Vec3::new(n.x+1.0, n.y + 1.0, n.z + 1.0)
+fn ray_color(r: Ray, world: &impl Hittable) -> Vec3 {
+    if let Some(rec) = world.hit(r, 0.0, f64::INFINITY) {
+        return 0.5 * Vec3::new(
+            rec.normal.x + 1.0,
+            rec.normal.y + 1.0,
+            rec.normal.z + 1.0,
+        );
     }
 
     let unit_direction = r.direction.unit();
-    let a = 0.5 * (unit_direction.y + 1.0);
-    return (1.0 - a)*Vec3::new(1.0, 1.0, 1.0) + a*Vec3::new(0.5, 0.7, 1.0);
+    let t = 0.5 * (unit_direction.y + 1.0);
+
+    return (1.0 - t) * Vec3::new(1.0, 1.0, 1.0) + t * Vec3::new(0.5, 0.7, 1.0);
 }
 
-fn hit_sphere(center: Vec3, radius: f64, ray: Ray) -> f64 {
-    let oc = center - ray.origin;
-    let a = ray.direction.length_squared();
-    let h = ray.direction.dot(oc);
-    let c = oc.length_squared() - radius * radius;
-    let discriminant = h*h - a*c;
-
-    if discriminant < 0.0 {
-        return -1.0;
-    }
-
-    return (h - discriminant.sqrt()) / a;
-}
 fn main() {
     // Image
 
@@ -42,6 +39,14 @@ fn main() {
     let image_width:  u32 = 400;
     let image_height: u32 = ((image_width as f64) / aspect_ration) as u32;
     let image_aspect_ratio: f64 = (image_width as f64) / (image_height as f64);
+
+
+    // World
+
+    let mut world = HittableList::new();
+
+    world.objects.push(Box::new(Sphere::new(Vec3::new(0.0,   0.0,-1.0),   0.5)));
+    world.objects.push(Box::new(Sphere::new(Vec3::new(0.0,-100.5,-1.0), 100.0)));
 
     // Camera
 
@@ -74,7 +79,7 @@ fn main() {
             let ray_direction = pixel_center - camer_center;
             let ray = Ray::new(camer_center, ray_direction);
 
-            write_color(ray_color(ray));
+            write_color(ray_color(ray, &world));
         }
     }
 }
