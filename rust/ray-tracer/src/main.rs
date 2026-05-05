@@ -11,13 +11,16 @@ use hit_record::Hittable;
 mod sphere;
 use sphere::Sphere;
 
+mod interval;
+use interval::Interval;
+
 fn write_color(v: Vec3) {
     let v = 255.999 * v;
     println!("{} {} {}", v.x as u32, v.y as u32, v.z as u32)
 }
 
 fn ray_color(r: Ray, world: &impl Hittable) -> Vec3 {
-    if let Some(rec) = world.hit(r, 0.0, f64::INFINITY) {
+    if let Some(rec) = world.hit(r, Interval::new(0.0, f64::INFINITY)) {
         return 0.5 * Vec3::new(
             rec.normal.x + 1.0,
             rec.normal.y + 1.0,
