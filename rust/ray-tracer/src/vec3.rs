@@ -2,6 +2,7 @@ use std::ops::Add;
 use std::ops::Sub;
 use std::ops::Mul;
 use std::ops::Div;
+use std::ops::AddAssign;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Vec3 {
@@ -75,5 +76,13 @@ impl Div<f64> for Vec3 {
 
     fn div(self, t: f64) -> Vec3 {
         Vec3::new(self.x / t, self.y / t, self.z / t)
+    }
+}
+
+impl AddAssign for Vec3 {
+    fn add_assign(&mut self, other: Self) {
+        self.x += other.x;
+        self.y += other.y;
+        self.z += other.z;
     }
 }
