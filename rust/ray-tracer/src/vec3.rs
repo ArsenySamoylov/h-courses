@@ -3,6 +3,7 @@ use std::ops::Sub;
 use std::ops::Mul;
 use std::ops::Div;
 use std::ops::AddAssign;
+use rand::Rng;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Vec3 {
@@ -71,6 +72,17 @@ impl Mul<Vec3> for f64 {
     }
 }
 
+impl Mul<Vec3> for Vec3 {
+    type Output = Vec3;
+    fn mul(self, other: Vec3) -> Vec3 {
+        Vec3::new(
+            self.x * other.x,
+            self.y * other.y,
+            self.z * other.z,
+        )
+    }
+}
+
 impl Div<f64> for Vec3 {
     type Output = Vec3;
 
@@ -85,4 +97,22 @@ impl AddAssign for Vec3 {
         self.y += other.y;
         self.z += other.z;
     }
+}
+
+pub fn random_in_unit_sphere() -> Vec3 {
+    let unit = Vec3::new(1.0, 1.0, 1.0);
+    loop {
+        let p = 2.0 * Vec3::new(
+            rand::thread_rng().gen::<f64>(),
+            rand::thread_rng().gen::<f64>(),
+            rand::thread_rng().gen::<f64>(),
+        ) - unit;
+        if p.length_squared() < 1.0 {
+            return p;
+        }
+    }
+}
+
+pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
+    v - 2.0 * v.dot(n) * n
 }

@@ -79,7 +79,7 @@ impl Camera {
                     let mut pixel_color = Vec3::new(0.0, 0.0, 0.0);
                     for _ in 0..self.samples_per_pixel {
                         let ray = self.get_ray(i, j);
-                        pixel_color += self.ray_color(ray, world);
+                        pixel_color += self.ray_color(ray, world, 50);
                     }
 
                     Self::write_color(pixel_color / self.samples_per_pixel as f64);
@@ -87,19 +87,21 @@ impl Camera {
         }
     }
 
-    fn ray_color(&self, r:Ray, world: &impl Hittable) -> Vec3 {
-        if let Some(rec) = world.hit(r, Interval::new(0.0, f64::INFINITY)) {
-            return 0.5 * Vec3::new(
-                rec.normal.x + 1.0,
-                rec.normal.y + 1.0,
-                rec.normal.z + 1.0,
-            );
+    fn ray_color(&self, r:Ray, world: &impl Hittable, depth: i32) -> Vec3 {
+        if depth <= 0 {
+            return Vec3::new(0.0, 0.0, 0.0);
+        }
+
+        if let Some(rec) = world.hit(r, Interval::new(0.001, f64::INFINITY)) {
+            if let Some(scatter) = rec.material.scatter(&r, &rec) {
+                return scatter.attenuation * self.ray_color(scatter.scattered, world, depth - 1);
+            }
+            return Vec3::new(0.0, 0.0, 0.0);
         }
 
         let unit_direction = r.direction.unit();
         let t = 0.5 * (unit_direction.y + 1.0);
-
-        return (1.0 - t) * Vec3::new(1.0, 1.0, 1.0) + t * Vec3::new(0.5, 0.7, 1.0);
+        (1.0 - t) * Vec3::new(1.0, 1.0, 1.0) + t * Vec3::new(0.5, 0.7, 1.0)
     }
 
     fn get_ray(&self, i: u32, j: u32) -> Ray {
@@ -114,11 +116,15 @@ impl Camera {
     }
 
     fn write_color(pixel_color: Vec3) {
-        let intensity = Interval::new(0.0, 0.999);
+        // Gamma correction (gamma = 2.0)
+        let r = pixel_color.x.sqrt();
+        let g = pixel_color.y.sqrt();
+        let b = pixel_color.z.sqrt();
 
-        let r = (256.0 * intensity.clamp(pixel_color.x)) as u32;
-        let g = (256.0 * intensity.clamp(pixel_color.y)) as u32;
-        let b = (256.0 * intensity.clamp(pixel_color.z)) as u32;
+        let intensity = Interval::new(0.0, 0.999);
+        let r = (256.0 * intensity.clamp(r)) as u32;
+        let g = (256.0 * intensity.clamp(g)) as u32;
+        let b = (256.0 * intensity.clamp(b)) as u32;
         println!("{} {} {}", r, g, b);
     }
 }
