@@ -1,0 +1,16 @@
+# Supported
+R-type:
+ADD SUB AND OR XOR SLT SLL SRL SRA
+
+I-type:
+ADDI ANDI ORI XORI SLTI SLLI SRLI SRAI
+LW
+
+S-type:
+SW
+
+B-type:
+BEQ BNE BLT BGE
+
+U-type:
+LUI
