@@ -157,14 +157,14 @@ module cpu (
     always_comb begin
         // RS1 forwarding
          case (fwd_a)
-            2'b01: rs1v = exec_state.mem_alu;
+            2'b01: rs1v = exec_state.mem2reg ? dmem_rdata : exec_state.mem_alu;
             2'b10: rs1v = mem_state.mem2reg ? mem_state.mem_data : mem_state.alu_res;
             default: rs1v = decode_state.rs1;
         endcase
 
         // RS2 forwarding
          case (fwd_b)
-            2'b01: rs2v = exec_state.mem_alu;
+            2'b01: rs2v = exec_state.mem2reg ? dmem_rdata : exec_state.mem_alu;
             2'b10: rs2v = mem_state.mem2reg ? mem_state.mem_data : mem_state.alu_res;
             default: rs2v = decode_state.rs2;
         endcase

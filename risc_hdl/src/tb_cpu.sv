@@ -147,6 +147,7 @@ module tb_cpu;
         // mem:    pc = 39
         // wb:     pc = 40
         // add x6, x5, x1
+        // Note: here we must forward x5 value from Mem stage
         imem[6] = 32'h00128333;
 
     end
