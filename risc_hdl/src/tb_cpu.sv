@@ -101,6 +101,7 @@ module tb_cpu;
         imem[2] = 32'h002081B3;
 
         // sub x4, x3, x1
+        // Note: here we must forward x3 value from previous instruction
         imem[3] = 32'h40118233;
 
         // sw x4, 0(x0)
@@ -122,7 +123,7 @@ module tb_cpu;
 
         rst = 1'b1;
 
-        repeat (5)
+        repeat (1)
             @(posedge clk);
 
         rst = 1'b0;
@@ -166,7 +167,6 @@ module tb_cpu;
         int actual;
     begin
 
-        // adjust path if your regfile differs
         actual = DUT.RF.regs[idx];
 
         assert(actual == expected)

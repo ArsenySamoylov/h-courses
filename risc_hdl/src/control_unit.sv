@@ -15,9 +15,13 @@ module cu (
     output logic [1:0]  de_fmt
 );
     // decode fields
-    logic [6:0] opcode = instr[6:0];
-    logic [2:0] funct3 = instr[14:12];
-    logic [6:0] funct7 = instr[31:25];
+    logic [6:0] opcode;
+    logic [2:0] funct3;
+    logic [6:0] funct7;
+
+    assign opcode = instr[6:0];
+    assign funct3 = instr[14:12];
+    assign funct7 = instr[31:25];
 
     always_comb begin
         // defaults
@@ -31,7 +35,7 @@ module cu (
         br_type  = BR_NONE;
         de_fmt = IMM_I;
 
-         case (opcode)
+        case (opcode)
             // ---------------- R-TYPE ----------------
             OP_R: begin
                 reg_we = 1'b1;
