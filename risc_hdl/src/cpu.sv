@@ -149,7 +149,10 @@ module cpu (
 
     // FORWARDING MUXES
     logic [31:0] rs1v, rs2v;
-    logic [31:0] alu_res;
+    logic [31:0] alu_res, alu_b;
+
+    logic decode_state_alu_src2;
+    assign decode_state_alu_src2 = decode_state.alu_src2;
 
     always_comb begin
         // RS1 forwarding
@@ -166,15 +169,13 @@ module cpu (
             default: rs2v = decode_state.rs2;
         endcase
 
-        // ALU input B selection
-        if (decode_state.alu_src2)
-            rs2v = decode_state.imm;
+        alu_b = decode_state.alu_src2 ? decode_state.imm : rs2v;
     end
 
     // ALU MODULE
     alu ALU (
         .a(rs1v),
-        .b(rs2v),
+        .b(alu_b),
         .op(decode_state.alu_op),
         .y(alu_res)
     );
