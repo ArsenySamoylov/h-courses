@@ -1,0 +1,57 @@
+llvm-tblgen regs.td -print-records
+------------- Classes -----------------
+class VecReg<bits<4> VecReg:hw = { ?, ?, ?, ? }, string VecReg:n = ?, string VecReg:p = ?, int VecReg:sz = ?> {
+  bits<4> HWEncoding = { VecReg:hw{3}, VecReg:hw{2}, VecReg:hw{1}, VecReg:hw{0} };
+  string Name = VecReg:n;
+  string purpose = VecReg:p;
+  int Size = VecReg:sz;
+}
+------------- Defs -----------------
+def D1 {	// VecReg
+  bits<4> HWEncoding = { 0, 0, 0, 1 };
+  string Name = "d1";
+  string purpose = "GPR";
+  int Size = 64;
+}
+def D2 {	// VecReg
+  bits<4> HWEncoding = { 0, 0, 1, 0 };
+  string Name = "d2";
+  string purpose = "VEC";
+  int Size = 64;
+}
+def D3 {	// VecReg
+  bits<4> HWEncoding = { 0, 0, 1, 1 };
+  string Name = "d3";
+  string purpose = "VEC";
+  int Size = 64;
+}
+def D4 {	// VecReg
+  bits<4> HWEncoding = { 0, 1, 0, 0 };
+  string Name = "d4";
+  string purpose = "VEC";
+  int Size = 64;
+}
+def Q1 {	// VecReg
+  bits<4> HWEncoding = { 0, 0, 0, 1 };
+  string Name = "q1";
+  string purpose = "VEC";
+  int Size = 128;
+}
+def Q2 {	// VecReg
+  bits<4> HWEncoding = { 0, 0, 1, 0 };
+  string Name = "q2";
+  string purpose = "VEC";
+  int Size = 128;
+}
+def Q3 {	// VecReg
+  bits<4> HWEncoding = { 0, 0, 1, 1 };
+  string Name = "q3";
+  string purpose = "VEC";
+  int Size = 128;
+}
+def Q4 {	// VecReg
+  bits<4> HWEncoding = { 0, 1, 0, 0 };
+  string Name = "q4";
+  string purpose = "VEC";
+  int Size = 128;
+}
