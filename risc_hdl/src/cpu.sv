@@ -72,7 +72,7 @@ module cpu (
     input  logic [31:0] dmem_rdata
 );
     // STATE
-    logic [31:0] pc, pc_next;
+    logic [31:0] pc;
 
     IF_t  fetch_state;
     DE_t  decode_state;
@@ -198,17 +198,17 @@ module cpu (
     end
 
     // PC LOGIC
-    assign pc_next = (decode_state.valid && take_branch)
-                    ? branch_target
-                    : (pc + 4);
-
     assign imem_addr = pc;
 
     always_ff @(posedge clk or posedge rst) begin
         if (rst)
             pc <= 0;
-        else
-            pc <= pc_next;
+        else begin
+            if (decode_state.valid && take_branch)
+                pc <= branch_target;
+            else
+                pc <= pc + 32'd4;
+        end
     end
 
     // IF/DE STAGE
