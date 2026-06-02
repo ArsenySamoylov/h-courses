@@ -7,6 +7,7 @@ GTKWAVE = gtkwave
 
 SRCS = \
 	src/tb_cpu.sv \
+	src/tb_cpu_branch.sv \
 	src/cpu.sv \
 	src/control_unit.sv \
 	src/hazard_unit.sv \

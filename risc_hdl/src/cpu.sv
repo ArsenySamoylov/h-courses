@@ -204,7 +204,7 @@ module cpu (
         if (rst)
             pc <= 0;
         else begin
-            if (decode_state.valid && take_branch)
+            if (decode_state.valid && take_branch && pc != branch_target) // note, if branch taken, but target == pc, it means we already started processing the instruction
                 pc <= branch_target;
             else
                 pc <= pc + 32'd4;
@@ -218,7 +218,7 @@ module cpu (
         else begin
             fetch_state.pc    <= pc;
             fetch_state.instr <= imem_data;
-            fetch_state.valid <= 1'b1;
+            fetch_state.valid <= !(take_branch && pc != branch_target); // if we seen taken branch, check, maybe we actually fetched right instruction (for example, when jumping over one instrucion)
         end
     end
 
@@ -227,7 +227,7 @@ module cpu (
         if (rst)
             decode_state <= '0;
         else begin
-            decode_state.valid <= fetch_state.valid;
+            decode_state.valid <= !(fetch_state.valid && take_branch);
 
             decode_state.pc    <= fetch_state.pc;
 
