@@ -1,8 +1,6 @@
 `timescale 1ns/1ps
 `include "isa.svh"
 
-
-// PIPELINE REGISTERS
 typedef struct packed {
     logic        valid;
     logic [31:0] pc;
@@ -79,11 +77,6 @@ module cpu (
     EX_t  exec_state;
     MEM_t mem_state;
 
-    // INSTRUCTION FIELDS (for debuging)
-    logic [6:0] opcode = fetch_state.instr[6:0];
-    logic [2:0] funct3 = fetch_state.instr[14:12];
-    logic [6:0] funct7 = fetch_state.instr[31:25];
-
     // CONTROL UNIT
     logic        reg_we, mem_we, mem_rd, mem2reg, alusrc;
     logic [3:0]  alu_op;
@@ -151,9 +144,6 @@ module cpu (
     logic [31:0] rs1v, rs2v;
     logic [31:0] alu_res, alu_b;
 
-    logic decode_state_alu_src2;
-    assign decode_state_alu_src2 = decode_state.alu_src2;
-
     always_comb begin
         // RS1 forwarding
          case (fwd_a)
@@ -212,61 +202,49 @@ module cpu (
     end
 
     // IF/DE STAGE
-    always_ff @(posedge clk or posedge rst) begin
-        if (rst)
-            fetch_state <= '0;
-        else begin
-            fetch_state.pc    <= pc;
-            fetch_state.instr <= imem_data;
-            fetch_state.valid <= !(take_branch && pc != branch_target); // if we seen taken branch, check, maybe we actually fetched right instruction (for example, when jumping over one instrucion)
-        end
+    always_ff @(posedge clk) begin
+        fetch_state.pc    <= pc;
+        fetch_state.instr <= imem_data;
+        fetch_state.valid <= !(take_branch && pc != branch_target); // if we seen taken branch, check, maybe we actually fetched right instruction (for example, when jumping over one instrucion)
     end
 
     // DE/EX STAGE
-    always_ff @(posedge clk or posedge rst) begin
-        if (rst)
-            decode_state <= '0;
-        else begin
-            decode_state.valid <= !(fetch_state.valid && take_branch);
+    always_ff @(posedge clk) begin
+        decode_state.valid <= !(fetch_state.valid && take_branch);
 
-            decode_state.pc    <= fetch_state.pc;
+        decode_state.pc    <= fetch_state.pc;
 
-            decode_state.rs1   <= rf_d1;
-            decode_state.rs2   <= rf_d2;
-            decode_state.imm   <= imm;
+        decode_state.rs1   <= rf_d1;
+        decode_state.rs2   <= rf_d2;
+        decode_state.imm   <= imm;
 
-            decode_state.rs1_idx <= fetch_state.instr[19:15];
-            decode_state.rs2_idx <= fetch_state.instr[24:20];
-            decode_state.rd      <= fetch_state.instr[11:7];
+        decode_state.rs1_idx <= fetch_state.instr[19:15];
+        decode_state.rs2_idx <= fetch_state.instr[24:20];
+        decode_state.rd      <= fetch_state.instr[11:7];
 
-            decode_state.alu_op  <= alu_op;
-            decode_state.br_type <= br_type;
-            decode_state.de_fmt <= de_fmt;
+        decode_state.alu_op  <= alu_op;
+        decode_state.br_type <= br_type;
+        decode_state.de_fmt <= de_fmt;
 
-            decode_state.reg_we   <= reg_we;
-            decode_state.mem_we   <= mem_we;
-            decode_state.mem_rd   <= mem_rd;
-            decode_state.mem2reg  <= mem2reg;
-            decode_state.alu_src2 <= alusrc;
-        end
+        decode_state.reg_we   <= reg_we;
+        decode_state.mem_we   <= mem_we;
+        decode_state.mem_rd   <= mem_rd;
+        decode_state.mem2reg  <= mem2reg;
+        decode_state.alu_src2 <= alusrc;
     end
 
     // EX/MEM STAGE
-    always_ff @(posedge clk or posedge rst) begin
-        if (rst)
-            exec_state <= '0;
-        else begin
-            exec_state.valid   <= decode_state.valid;
+    always_ff @(posedge clk) begin
+        exec_state.valid   <= decode_state.valid;
 
-            exec_state.mem_alu <= alu_res;
-            exec_state.rs2     <= rs2v;
-            exec_state.rd      <= decode_state.rd;
+        exec_state.mem_alu <= alu_res;
+        exec_state.rs2     <= rs2v;
+        exec_state.rd      <= decode_state.rd;
 
-            exec_state.reg_we  <= decode_state.reg_we;
-            exec_state.mem_we  <= decode_state.mem_we;
-            exec_state.mem_rd  <= decode_state.mem_rd;
-            exec_state.mem2reg <= decode_state.mem2reg;
-        end
+        exec_state.reg_we  <= decode_state.reg_we;
+        exec_state.mem_we  <= decode_state.mem_we;
+        exec_state.mem_rd  <= decode_state.mem_rd;
+        exec_state.mem2reg <= decode_state.mem2reg;
     end
 
     // MEMORY
@@ -276,19 +254,15 @@ module cpu (
     assign dmem_wdata = exec_state.rs2;
 
     // MEM/WB STAGE
-    always_ff @(posedge clk or posedge rst) begin
-        if (rst)
-            mem_state <= '0;
-        else begin
-            mem_state.valid    <= exec_state.valid;
+    always_ff @(posedge clk) begin
+        mem_state.valid    <= exec_state.valid;
 
-            mem_state.mem_data <= dmem_rdata;
-            mem_state.alu_res  <= exec_state.mem_alu;
-            mem_state.rd       <= exec_state.rd;
+        mem_state.mem_data <= dmem_rdata;
+        mem_state.alu_res  <= exec_state.mem_alu;
+        mem_state.rd       <= exec_state.rd;
 
-            mem_state.reg_we   <= exec_state.reg_we;
-            mem_state.mem2reg  <= exec_state.mem2reg;
-        end
+        mem_state.reg_we   <= exec_state.reg_we;
+        mem_state.mem2reg  <= exec_state.mem2reg;
     end
 
 endmodule

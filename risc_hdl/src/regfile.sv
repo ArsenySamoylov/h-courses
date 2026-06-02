@@ -21,7 +21,6 @@ module regfile (
             regs[WB_A] <= WB_D;
     end
 
-    // Note: We must explicitly handle when writting to the register, we are reading from.
     assign D1 =
         (A1 == 5'd0) ? 32'b0 :regs[A1];
 
